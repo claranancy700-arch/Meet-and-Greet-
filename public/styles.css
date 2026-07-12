@@ -154,6 +154,51 @@ textarea {
   color: #fbbf24;
 }
 
+.hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.hero-grid {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-panel {
+  min-height: 100%;
+}
+
+.hero-image-frame {
+  border-radius: 24px;
+  overflow: hidden;
+  margin-top: 24px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.14);
+}
+
+.hero-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.tier-image-frame {
+  border-radius: 28px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  background: #eef2ff;
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+}
+
+.tier-image {
+  max-width: 80%;
+  filter: drop-shadow(0 20px 30px rgba(15, 23, 42, 0.08));
+}
+
 main {
   max-width: 1180px;
   margin: 0 auto;
@@ -310,9 +355,275 @@ textarea {
   gap: 22px;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.72);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.modal-panel {
+  width: min(700px, calc(100% - 40px));
+  max-height: min(92vh, 860px);
+  overflow-y: auto;
+  background: #f9fbff;
+  border-radius: 28px;
+  box-shadow: 0 30px 90px rgba(15, 23, 42, 0.22);
+  padding: 32px;
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.close-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #0f172a;
+}
+
+.payment-gateway-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 24px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(14, 165, 233, 0.06));
+  border: 1px solid rgba(59, 130, 246, 0.14);
+}
+
+.gateway-brand h3 {
+  margin: 10px 0 6px;
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.gateway-subtitle {
+  margin: 0;
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.gateway-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 48px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 16px 26px rgba(29, 78, 216, 0.18);
+}
+
+.payment-meta-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1fr 240px;
+  align-items: start;
+  margin: 26px 0 6px;
+}
+
+.payment-summary-card,
+.accepted-cards {
+  background: white;
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.06);
+}
+
+.payment-summary-card {
+  min-height: 130px;
+}
+
+.accepted-label {
+  display: block;
+  margin-bottom: 14px;
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.card-logos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 43px;
+  min-height: 29px;
+  border-radius: 20px;
+  background: transparent;
+}
+
+.card-logo img {
+  display: block;
+  max-width: 100%;
+  max-height: 34px;
+}
+
 .payment-summary p {
   margin: 0 0 12px;
   color: #334155;
+}
+
+.payment-form {
+  display: grid;
+  gap: 18px;
+}
+
+.payment-form label {
+  display: block;
+  margin-bottom: 10px;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.payment-form input {
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid #dbeafe;
+  padding: 18px 18px;
+  background: white;
+  color: #0f172a;
+  box-shadow: inset 0 2px 12px rgba(15, 23, 42, 0.04);
+}
+
+.secure-note {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    margin-top: 12px;
+    border-radius: 22px;
+    background: #eef2ff;
+    color: #0f172a;
+    font-size: 0.95rem;
+    border: 1px solid #dbeafe;
+  }
+
+.payment-fields-row {
+  display: grid;
+  grid-template-columns: 180px 120px;
+  gap: 18px;
+}
+
+@media (max-width: 980px) {
+  .hero-grid,
+  .field-row,
+  .stats-section,
+  .steps-grid,
+  .payment-fields-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-grid {
+    align-items: stretch;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-card,
+  .form-panel,
+  .stats-card,
+  .step-card,
+  .modal-panel {
+    padding: 24px;
+  }
+
+  .payment-gateway-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px;
+  }
+
+  .gateway-logo {
+    min-width: unset;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .payment-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-fields-row {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 720px) {
+  .payment-fields-row {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-backdrop {
+    padding: 14px;
+  }
+
+  .modal-panel {
+    width: 100%;
+    max-height: 96vh;
+    padding: 20px;
+  }
+
+  .payment-gateway-header {
+    padding: 18px;
+  }
+
+  .payment-meta-grid {
+    gap: 14px;
+  }
+
+  .close-button {
+    width: 42px;
+    height: 42px;
+  }
+
+  .modal-header {
+    gap: 12px;
+  }
+
+  .modal-header > div {
+    width: 100%;
+  }
+
+  .modal-header .button.close-button {
+    margin-left: 205px;
+  }
 }
 
 .tier-summary {
@@ -391,19 +702,41 @@ textarea {
 
 @media (max-width: 720px) {
   .hero {
-    padding: 40px 18px 24px;
+    padding: 34px 16px 22px;
   }
 
   .hero-copy h1 {
-    font-size: 2.7rem;
+    font-size: 2.4rem;
+  }
+
+  .hero-copy p {
+    margin-bottom: 20px;
   }
 
   main {
-    padding: 28px 18px 60px;
+    padding: 24px 16px 56px;
   }
 
   .field-row {
     display: block;
+  }
+
+  .field-row .field-group {
+    width: 100%;
+  }
+
+  .modal-panel {
+    max-height: 95vh;
+    padding: 22px;
+  }
+
+  .modal-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .close-button {
+    align-self: flex-end;
   }
 }
 

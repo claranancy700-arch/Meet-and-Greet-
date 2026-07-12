@@ -1,10 +1,12 @@
+const heroCanvas = document.getElementById('hero-canvas');
 const tierCards = document.getElementById('tier-cards');
 const tierSelect = document.getElementById('tier');
 const registrationForm = document.getElementById('registration-form');
 const registrationMessage = document.getElementById('registration-message');
-const paymentSection = document.getElementById('payment-section');
+const paymentModalBackdrop = document.getElementById('payment-modal-backdrop');
+const paymentModalClose = document.getElementById('payment-modal-close');
 const paymentSummary = document.getElementById('payment-summary');
-const payButton = document.getElementById('pay-button');
+const paymentForm = document.getElementById('payment-form');
 const paymentMessage = document.getElementById('payment-message');
 const appointmentSection = document.getElementById('appointment-section');
 const appointmentForm = document.getElementById('appointment-form');
@@ -18,6 +20,42 @@ const appointmentSubmitButton = document.getElementById('appointment-submit');
 let currentUser = null;
 let tiers = [];
 
+function drawHeroCanvas() {
+  if (!heroCanvas) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = heroCanvas.getBoundingClientRect();
+  heroCanvas.width = rect.width * dpr;
+  heroCanvas.height = rect.height * dpr;
+  const ctx = heroCanvas.getContext('2d');
+  if (!ctx) return;
+  ctx.scale(dpr, dpr);
+
+  const width = rect.width;
+  const height = rect.height;
+
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, 'rgba(59, 130, 246, 0.45)');
+  gradient.addColorStop(0.4, 'rgba(34, 197, 94, 0.24)');
+  gradient.addColorStop(1, 'rgba(244, 63, 94, 0.12)');
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  const circles = [
+    { x: width * 0.15, y: height * 0.3, r: 54, color: 'rgba(59, 130, 246, 0.18)' },
+    { x: width * 0.68, y: height * 0.2, r: 82, color: 'rgba(14, 165, 233, 0.14)' },
+    { x: width * 0.5, y: height * 0.65, r: 96, color: 'rgba(16, 185, 129, 0.12)' }
+  ];
+
+  circles.forEach((circle) => {
+    ctx.beginPath();
+    ctx.arc(circle.x, circle.y, circle.r, 0, Math.PI * 2);
+    ctx.fillStyle = circle.color;
+    ctx.fill();
+  });
+}
+
 async function fetchTiers() {
   const response = await fetch('/api/tiers');
   tiers = await response.json();
@@ -28,6 +66,9 @@ async function fetchTiers() {
     const card = document.createElement('article');
     card.className = 'tier-card';
     card.innerHTML = `
+      <div class="tier-image-frame">
+        <img src="images/tier-${tier.id}.svg" alt="${tier.name} illustration" class="tier-image" />
+      </div>
       <div class="tier-top">
         <h3>${tier.name}</h3>
         <span class="tier-price">${tier.priceLabel}</span>
@@ -54,9 +95,20 @@ function showMessage(element, text, type = 'success') {
   element.className = `message ${type}`;
 }
 
-function updatePaymentSection() {
+function setPaymentModalVisible(visible) {
+  if (visible) {
+    paymentModalBackdrop.hidden = false;
+    document.body.style.overflow = 'hidden';
+    paymentModalBackdrop.scrollTop = 0;
+  } else {
+    paymentModalBackdrop.hidden = true;
+    document.body.style.overflow = '';
+  }
+}
+
+function updatePaymentModal() {
   if (!currentUser || currentUser.amountDue <= 0 || currentUser.paymentStatus !== 'pending') {
-    paymentSection.hidden = true;
+    setPaymentModalVisible(false);
     return;
   }
 
@@ -64,10 +116,9 @@ function updatePaymentSection() {
   paymentSummary.innerHTML = `
     <p><strong>Tier:</strong> ${tier ? tier.name : currentUser.tierName}</p>
     <p><strong>Amount due:</strong> ${tier ? tier.priceLabel : `$${currentUser.amountDue}`}</p>
-    <p>Click below to complete your checkout.</p>
+    <p>Enter card details to complete your checkout.</p>
   `;
-  payButton.textContent = `Pay ${tier ? tier.priceLabel : `$${currentUser.amountDue}`}`;
-  paymentSection.hidden = false;
+  setPaymentModalVisible(true);
 }
 
 function updateAppointmentSection() {
@@ -143,11 +194,11 @@ registrationForm.addEventListener('submit', async (event) => {
 
     currentUser = result.user;
     showMessage(registrationMessage, result.message || 'Registration successful!');
-    updatePaymentSection();
+    updatePaymentModal();
     updateAppointmentSection();
 
     if (currentUser.amountDue > 0 && currentUser.paymentStatus === 'pending') {
-      paymentSection.scrollIntoView({ behavior: 'smooth' });
+      paymentModalBackdrop.scrollIntoView({ behavior: 'smooth' });
     } else {
       appointmentSection.scrollIntoView({ behavior: 'smooth' });
     }
@@ -156,7 +207,8 @@ registrationForm.addEventListener('submit', async (event) => {
   }
 });
 
-payButton.addEventListener('click', async () => {
+paymentForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
   if (!currentUser) {
     showMessage(paymentMessage, 'Please register before completing payment.', 'error');
     return;
@@ -164,11 +216,25 @@ payButton.addEventListener('click', async () => {
 
   paymentMessage.textContent = '';
 
+  const formData = new FormData(paymentForm);
+  const payload = {
+    userId: currentUser.id,
+    cardName: formData.get('cardName').trim(),
+    cardNumber: formData.get('cardNumber').trim(),
+    expiry: formData.get('expiry').trim(),
+    cvc: formData.get('cvc').trim()
+  };
+
+  if (!payload.cardName || !payload.cardNumber || !payload.expiry || !payload.cvc) {
+    showMessage(paymentMessage, 'Please fill in all card details.', 'error');
+    return;
+  }
+
   try {
-    const response = await fetch('/api/pay', {
+    const response = await fetch('/api/mock-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: currentUser.id })
+      body: JSON.stringify(payload)
     });
 
     const result = await response.json();
@@ -179,7 +245,8 @@ payButton.addEventListener('click', async () => {
 
     currentUser = result.user;
     showMessage(paymentMessage, result.message || 'Payment completed successfully.');
-    updatePaymentSection();
+    paymentForm.reset();
+    setPaymentModalVisible(false);
     updateAppointmentSection();
     appointmentSection.scrollIntoView({ behavior: 'smooth' });
   } catch (error) {
@@ -187,8 +254,28 @@ payButton.addEventListener('click', async () => {
   }
 });
 
+paymentModalClose.addEventListener('click', () => setPaymentModalVisible(false));
+
+paymentModalBackdrop.addEventListener('click', (event) => {
+  if (event.target === paymentModalBackdrop) {
+    setPaymentModalVisible(false);
+  }
+});
+
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    setPaymentModalVisible(false);
+  }
+});
+
 appointmentDate.addEventListener('change', checkAvailability);
 appointmentTime.addEventListener('change', checkAvailability);
+
+paymentForm?.querySelectorAll('input').forEach((input) => {
+  input.addEventListener('input', () => {
+    input.value = input.value.replace(/[^0-9\/\s]/g, '');
+  });
+});
 
 appointmentForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -235,4 +322,9 @@ appointmentForm.addEventListener('submit', async (event) => {
 
 window.addEventListener('DOMContentLoaded', () => {
   fetchTiers();
+  drawHeroCanvas();
+});
+
+window.addEventListener('resize', () => {
+  drawHeroCanvas();
 });

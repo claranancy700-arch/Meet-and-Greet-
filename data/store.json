@@ -1,5 +1,167 @@
 {
-  "users": [],
+  "users": [
+    {
+      "id": "user_1783861737889",
+      "name": "Clara Nancy",
+      "email": "claranancy700@gmail.com",
+      "phone": "8133389704",
+      "tierId": "premium",
+      "tierName": "Premium",
+      "amountDue": 49,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T13:08:57.889Z"
+    },
+    {
+      "id": "user_1783862418499",
+      "name": "terry met`",
+      "email": "terrymet@gmail.com",
+      "phone": "7030153056",
+      "tierId": "vip",
+      "tierName": "VIP",
+      "amountDue": 129,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T13:20:18.499Z"
+    },
+    {
+      "id": "user_1783862995591",
+      "name": "Sam Larry",
+      "email": "sam@gmail.com",
+      "phone": "8198020921",
+      "tierId": "premium",
+      "tierName": "Premium",
+      "amountDue": 49,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T13:29:55.591Z"
+    },
+    {
+      "id": "user_1783863188624",
+      "name": "Ted Maty",
+      "email": "ted@gmail.com",
+      "phone": "7069226939",
+      "tierId": "vip",
+      "tierName": "VIP",
+      "amountDue": 129,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T13:33:08.624Z"
+    },
+    {
+      "id": "user_1783863845696",
+      "name": "sam fery",
+      "email": "smmy@gmail.com",
+      "phone": "8190220903",
+      "tierId": "vip",
+      "tierName": "VIP",
+      "amountDue": 129,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T13:44:05.696Z"
+    },
+    {
+      "id": "user_1783864244814",
+      "name": "Deb Tary",
+      "email": "debtary76@gmail.com",
+      "phone": "8133389709",
+      "tierId": "premium",
+      "tierName": "Premium",
+      "amountDue": 49,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T13:50:44.814Z"
+    },
+    {
+      "id": "user_1783864431059",
+      "name": "ther mule",
+      "email": "therm@gmail.com",
+      "phone": "8133389703",
+      "tierId": "vip",
+      "tierName": "VIP",
+      "amountDue": 129,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T13:53:51.059Z"
+    },
+    {
+      "id": "user_1783864916554",
+      "name": "terry benz",
+      "email": "terryb@gmail.com",
+      "phone": "8133389701",
+      "tierId": "premium",
+      "tierName": "Premium",
+      "amountDue": 49,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T14:01:56.554Z"
+    },
+    {
+      "id": "user_1783865511068",
+      "name": "flex traz",
+      "email": "flext@gmail.com",
+      "phone": "8133389709",
+      "tierId": "premium",
+      "tierName": "Premium",
+      "amountDue": 49,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T14:11:51.068Z"
+    },
+    {
+      "id": "user_1783865609738",
+      "name": "flet manny",
+      "email": "manny@gmail.com",
+      "phone": "8133389700",
+      "tierId": "premium",
+      "tierName": "Premium",
+      "amountDue": 49,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T14:13:29.738Z"
+    },
+    {
+      "id": "user_1783865844876",
+      "name": "tom hatz",
+      "email": "hatz@gmial.com",
+      "phone": "8133389700",
+      "tierId": "vip",
+      "tierName": "VIP",
+      "amountDue": 129,
+      "paymentStatus": "pending",
+      "registeredAt": "2026-07-12T14:17:24.876Z"
+    }
+  ],
   "appointments": [],
-  "tiers": []
+  "tiers": [
+    {
+      "id": "standard",
+      "name": "Standard",
+      "description": "Community access with a group meet-and-greet session.",
+      "priceLabel": "Free",
+      "price": 0,
+      "perks": [
+        "Group greeting",
+        "Event updates",
+        "Priority reminder"
+      ],
+      "capacity": 50
+    },
+    {
+      "id": "premium",
+      "name": "Premium",
+      "description": "Faster entry, private greeting, and a premium photo moment.",
+      "priceLabel": "$49",
+      "price": 49,
+      "perks": [
+        "Private greeting",
+        "Priority booking",
+        "Signed gift"
+      ],
+      "capacity": 30
+    },
+    {
+      "id": "vip",
+      "name": "VIP",
+      "description": "VIP lane, exclusive perks, and a memorable experience.",
+      "priceLabel": "$129",
+      "price": 129,
+      "perks": [
+        "VIP seating",
+        "Exclusive swag",
+        "Personal photo session"
+      ],
+      "capacity": 15
+    }
+  ]
 }

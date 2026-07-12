@@ -159,6 +159,76 @@ app.post('/api/pay', (req, res) => {
   res.status(200).json({ user, message: 'Payment completed successfully.' });
 });
 
+function validateCardNumber(number) {
+  const digits = number.replace(/\D/g, '');
+  return /^[0-9]{13,19}$/.test(digits);
+}
+
+function validateExpiry(expiry) {
+  const match = expiry.match(/^(0[1-9]|1[0-2])\/(\d{2}|\d{4})$/);
+  if (!match) return false;
+  const month = Number(match[1]);
+  let year = Number(match[2]);
+  if (year < 100) year += 2000;
+  const expiryDate = new Date(year, month - 1, 1);
+  const now = new Date();
+  expiryDate.setMonth(expiryDate.getMonth() + 1);
+  return expiryDate > now;
+}
+
+function getCardBrand(number) {
+  const digits = number.replace(/\D/g, '');
+  if (/^4/.test(digits)) return 'Visa';
+  if (/^5[1-5]/.test(digits)) return 'Mastercard';
+  if (/^3[47]/.test(digits)) return 'American Express';
+  if (/^6(?:011|5)/.test(digits)) return 'Discover';
+  return 'Card';
+}
+
+app.post('/api/mock-payment', (req, res) => {
+  const { userId, cardName, cardNumber, expiry, cvc } = req.body;
+  if (!userId || !cardName || !cardNumber || !expiry || !cvc) {
+    return res.status(400).json({ error: 'All payment fields are required.' });
+  }
+
+  if (!validateCardNumber(cardNumber)) {
+    return res.status(400).json({ error: 'Invalid card number.' });
+  }
+
+  if (!validateExpiry(expiry)) {
+    return res.status(400).json({ error: 'Invalid expiry date. Use MM/YY.' });
+  }
+
+  if (!/^[0-9]{3,4}$/.test(cvc)) {
+    return res.status(400).json({ error: 'Invalid CVC code.' });
+  }
+
+  const data = loadData();
+  const user = data.users.find((item) => item.id === userId);
+  if (!user) {
+    return res.status(404).json({ error: 'Registered user not found.' });
+  }
+
+  if (user.paymentStatus === 'paid') {
+    return res.status(400).json({ error: 'Payment has already been completed.' });
+  }
+
+  if (user.amountDue <= 0) {
+    return res.status(400).json({ error: 'No payment is required for this registration tier.' });
+  }
+
+  const brand = getCardBrand(cardNumber);
+  const normalized = cardNumber.replace(/\D/g, '');
+  const last4 = normalized.slice(-4);
+
+  user.paymentStatus = 'paid';
+  user.paidAt = new Date().toISOString();
+  user.paymentMethod = { brand, last4, expiry, cardName };
+  saveData(data);
+
+  res.status(200).json({ user, message: `Payment approved by ${brand} Gateway.` });
+});
+
 app.post('/api/appointments', (req, res) => {
   const { userId, date, time, notes } = req.body;
   if (!userId || !date || !time) {

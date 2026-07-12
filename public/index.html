@@ -8,6 +8,7 @@
 </head>
 <body>
   <header class="hero">
+    <canvas id="hero-canvas" class="hero-canvas"></canvas>
     <div class="hero-grid">
       <div class="hero-copy">
         <span class="eyebrow">Exclusive Event</span>
@@ -28,6 +29,9 @@
             <li>Slot-based appointment booking</li>
             <li>Built-in payment flow for paid passes</li>
           </ul>
+          <div class="hero-image-frame">
+            <img src="images/hero-spotlight.svg" alt="Event spotlight illustration" class="hero-image" />
+          </div>
         </div>
       </div>
     </div>
@@ -88,17 +92,68 @@
       <div id="registration-message" class="message"></div>
     </section>
 
-    <section class="payment-section" id="payment-section" hidden>
-      <div class="section-heading">
-        <span class="eyebrow">Step 2</span>
-        <h2>Secure your paid pass.</h2>
+    <div id="payment-modal-backdrop" class="modal-backdrop" hidden>
+      <div class="modal-panel payment-card">
+        <div class="modal-header">
+          <div>
+           <span class="eyebrow">Step 2</span>
+           <button type="button" class="button close-button" id="payment-modal-close" aria-label="Close payment popup">×</button>
+            <h2 style="margin: 0;">Secure your paid pass.</h2>
+          </div>
+          
+        </div>
+
+        <div class="payment-gateway-header">
+          <div class="gateway-brand">
+            <span class="gateway-label">Payment Gateway</span>
+            <h3>Professional checkout</h3>
+            <p class="gateway-subtitle">Encrypted payment capture for your premium connection.</p>
+          </div>
+          <div class="gateway-logo">GatePay</div>
+        </div>
+
+        <div class="payment-meta-grid">
+          <div id="payment-summary" class="payment-summary payment-summary-card"></div>
+          <div class="accepted-cards">
+            <span class="accepted-label">Accepted cards & wallets</span>
+            <div class="card-logos">
+              <span class="card-logo"><img src="images/visa.svg" alt="Visa" /></span>
+              <span class="card-logo"><img src="images/mastercard.svg" alt="Mastercard" /></span>
+              <span class="card-logo"><img src="images/amex.svg" alt="American Express" /></span>
+              <span class="card-logo"><img src="images/apple-pay.svg" alt="Apple Pay" /></span>
+              <span class="card-logo"><img src="images/paypal.svg" alt="PayPal" /></span>
+            </div>
+          </div>
+        </div>
+
+        <form id="payment-form" class="payment-form">
+          <div class="field-group">
+            <label for="card-name">Cardholder name</label>
+            <input type="text" id="card-name" name="cardName" placeholder="Jane Doe" required />
+          </div>
+          <div class="field-group">
+            <label for="card-number">Card number</label>
+            <input type="text" id="card-number" name="cardNumber" placeholder="4242 4242 4242 4242" maxlength="19" inputmode="numeric" required />
+          </div>
+          <div class="field-row payment-fields-row">
+            <div class="field-group">
+              <label for="card-expiry">Expiry date</label>
+              <input type="text" id="card-expiry" name="expiry" placeholder="MM/YY" maxlength="5" required />
+            </div>
+            <div class="field-group">
+              <label for="card-cvc">CVC</label>
+              <input type="text" id="card-cvc" name="cvc" placeholder="123" maxlength="4" inputmode="numeric" required />
+            </div>
+          </div>
+          <button type="submit" class="button primary">Confirm payment</button>
+        </form>
+
+        <div class="secure-note">
+          <strong>Secure payment</strong> — Your card details are captured safely in this guided checkout flow.
+        </div>
+        <div id="payment-message" class="message"></div>
       </div>
-      <div class="form-panel payment-card">
-        <div id="payment-summary" class="payment-summary"></div>
-        <button id="pay-button" class="button primary">Pay Now</button>
-      </div>
-      <div id="payment-message" class="message"></div>
-    </section>
+    </div>
 
     <section class="appointment-section" id="appointment-section" hidden>
       <div class="section-heading">
