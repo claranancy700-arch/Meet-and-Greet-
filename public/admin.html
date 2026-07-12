@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard - Meet & Greet</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="admin-body">
+  <header class="hero admin-page">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow">Admin Dashboard</span>
+        <h1>Manage registrations, appointments, and payments.</h1>
+        <p>Enter your admin secret to view event performance, outstanding payments, and attendee details.</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="admin-card">
+      <div class="field-group">
+        <label for="admin-key">Admin Secret</label>
+        <input type="password" id="admin-key" placeholder="Enter admin secret" />
+      </div>
+      <button id="load-admin" class="button primary">Load Dashboard</button>
+      <div id="admin-message" class="message"></div>
+    </section>
+
+    <section id="dashboard-content" class="admin-card" hidden>
+      <div id="summary-cards" class="dashboard-grid"></div>
+      <div class="table-container">
+        <h2>Registrations</h2>
+        <table class="table-list" id="users-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Tier</th>
+              <th>Payment</th>
+              <th>Registered</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="table-container">
+        <h2>Appointments</h2>
+        <table class="table-list" id="appointments-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const loadAdmin = document.getElementById('load-admin');
+    const adminMessage = document.getElementById('admin-message');
+    const dashboardContent = document.getElementById('dashboard-content');
+    const summaryCards = document.getElementById('summary-cards');
+    const usersTable = document.getElementById('users-table').querySelector('tbody');
+    const appointmentsTable = document.getElementById('appointments-table').querySelector('tbody');
+
+    function showMessage(element, text, type = 'error') {
+      element.textContent = text;
+      element.className = `message ${type}`;
+    }
+
+    function renderSummary(stats) {
+      summaryCards.innerHTML = '';
+      Object.entries(stats).forEach(([label, value]) => {
+        const card = document.createElement('article');
+        card.className = 'dashboard-card';
+        card.innerHTML = `<strong>${value}</strong><p>${label}</p>`;
+        summaryCards.appendChild(card);
+      });
+    }
+
+    function renderUsers(users) {
+      usersTable.innerHTML = '';
+      users.forEach((user) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${user.name}</td>
+          <td>${user.email}</td>
+          <td>${user.tierName}</td>
+          <td>${user.paymentStatus}</td>
+          <td>${new Date(user.registeredAt).toLocaleString()}</td>
+        `;
+        usersTable.appendChild(row);
+      });
+    }
+
+    function renderAppointments(appointments) {
+      appointmentsTable.innerHTML = '';
+      appointments.forEach((appointment) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${appointment.name}</td>
+          <td>${appointment.email}</td>
+          <td>${appointment.date}</td>
+          <td>${appointment.time}</td>
+          <td>${appointment.notes || '-'}</td>
+        `;
+        appointmentsTable.appendChild(row);
+      });
+    }
+
+    loadAdmin.addEventListener('click', async () => {
+      adminMessage.textContent = '';
+      dashboardContent.hidden = true;
+      const adminKey = document.getElementById('admin-key').value.trim();
+
+      if (!adminKey) {
+        showMessage(adminMessage, 'Please enter the admin secret to continue.', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/admin/summary?adminKey=${encodeURIComponent(adminKey)}`);
+        const result = await response.json();
+        if (!response.ok) {
+          showMessage(adminMessage, result.error || 'Unable to load admin dashboard.', 'error');
+          return;
+        }
+
+        renderSummary(result.stats);
+        renderUsers(result.users);
+        renderAppointments(result.appointments);
+        dashboardContent.hidden = false;
+      } catch (error) {
+        showMessage(adminMessage, 'Unable to load admin dashboard.', 'error');
+      }
+    });
+  </script>
+</body>
+</html>

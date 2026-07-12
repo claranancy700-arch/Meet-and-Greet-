@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meet & Greet Experience</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow">Exclusive Event</span>
+        <h1>Meet your favorite host in a premium, unforgettable session.</h1>
+        <p>Pick a tier, register with your details, and choose a secure appointment slot. The best moments begin with a seamless experience.</p>
+        <div class="hero-actions">
+          <a href="#tiers" class="button primary">Explore Tiers</a>
+          <a href="#registration" class="button secondary">Start Registration</a>
+        </div>
+      </div>
+      <div class="hero-panel">
+        <div class="hero-card hero-card-highlight">
+          <span class="tag">Summer Gala</span>
+          <h2>Limited access, premium vibes</h2>
+          <p>From free group greetings to full VIP sessions, this event is tuned for memorable connections and curated hospitality.</p>
+          <ul class="hero-list">
+            <li>Curated tier benefits</li>
+            <li>Slot-based appointment booking</li>
+            <li>Built-in payment flow for paid passes</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="stats-section">
+      <div class="stats-card">
+        <strong>3 tiers</strong>
+        <p>Free, Premium, and VIP experiences.</p>
+      </div>
+      <div class="stats-card">
+        <strong>6 slots</strong>
+        <p>Fast availability checks for every booking time.</p>
+      </div>
+      <div class="stats-card">
+        <strong>Admin access</strong>
+        <p>Manage registrations, payments and appointments.</p>
+      </div>
+    </section>
+
+    <section class="tier-section" id="tiers">
+      <div class="section-heading">
+        <span class="eyebrow">Registration tiers</span>
+        <h2>Choose the moment that fits your style.</h2>
+      </div>
+      <div id="tier-cards" class="tier-cards"></div>
+    </section>
+
+    <section class="registration-section" id="registration">
+      <div class="section-heading">
+        <span class="eyebrow">Step 1</span>
+        <h2>Register for your preferred tier.</h2>
+      </div>
+      <form id="registration-form" class="form-panel">
+        <div class="field-group">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" name="name" required />
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required />
+          </div>
+          <div class="field-group">
+            <label for="phone">Phone</label>
+            <input type="tel" id="phone" name="phone" required />
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="tier">Chosen Tier</label>
+          <select id="tier" name="tier" required>
+            <option value="">Select a tier</option>
+          </select>
+        </div>
+        <button type="submit" class="button primary">Register Now</button>
+      </form>
+      <div id="registration-message" class="message"></div>
+    </section>
+
+    <section class="payment-section" id="payment-section" hidden>
+      <div class="section-heading">
+        <span class="eyebrow">Step 2</span>
+        <h2>Secure your paid pass.</h2>
+      </div>
+      <div class="form-panel payment-card">
+        <div id="payment-summary" class="payment-summary"></div>
+        <button id="pay-button" class="button primary">Pay Now</button>
+      </div>
+      <div id="payment-message" class="message"></div>
+    </section>
+
+    <section class="appointment-section" id="appointment-section" hidden>
+      <div class="section-heading">
+        <span class="eyebrow">Step 3</span>
+        <h2>Book your appointment slot.</h2>
+      </div>
+      <div class="form-panel">
+        <div class="field-group">
+          <label>Registered Tier</label>
+          <div id="selected-tier-label" class="tier-summary">Not selected yet</div>
+        </div>
+        <form id="appointment-form">
+          <div class="field-row">
+            <div class="field-group">
+              <label for="appointment-date">Date</label>
+              <input type="date" id="appointment-date" name="date" required />
+            </div>
+            <div class="field-group">
+              <label for="appointment-time">Time</label>
+              <input type="time" id="appointment-time" name="time" required />
+            </div>
+          </div>
+          <div id="appointment-availability" class="availability-badge"></div>
+          <div class="field-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" rows="3" placeholder="Anything the host should know?"></textarea>
+          </div>
+          <button id="appointment-submit" type="submit" class="button primary">Book Appointment</button>
+        </form>
+      </div>
+      <div id="appointment-message" class="message"></div>
+    </section>
+
+    <section class="steps-section">
+      <div class="section-heading">
+        <span class="eyebrow">How it works</span>
+        <h2>Book with confidence in three easy steps.</h2>
+      </div>
+      <div class="steps-grid">
+        <article class="step-card">
+          <strong>Choose a tier</strong>
+          <p>Pick a registration plan that matches your experience level and budget.</p>
+        </article>
+        <article class="step-card">
+          <strong>Pay if needed</strong>
+          <p>Premium and VIP tiers include a secure checkout flow.</p>
+        </article>
+        <article class="step-card">
+          <strong>Reserve your slot</strong>
+          <p>Check real-time availability and confirm your appointment instantly.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Need admin access? <a href="/admin">Open the dashboard</a>.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
