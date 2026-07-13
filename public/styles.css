@@ -182,6 +182,8 @@ textarea {
   display: block;
   width: 100%;
   height: auto;
+  max-height: 320px;
+  object-fit: cover;
 }
 
 .tier-image-frame {
@@ -189,14 +191,14 @@ textarea {
   overflow: hidden;
   margin-bottom: 20px;
   background: #eef2ff;
-  display: grid;
-  place-items: center;
-  min-height: 160px;
+  min-height: 180px;
 }
 
 .tier-image {
-  max-width: 80%;
-  filter: drop-shadow(0 20px 30px rgba(15, 23, 42, 0.08));
+  display: block;
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
 }
 
 main {
@@ -293,6 +295,20 @@ main {
 
 .tier-card button {
   width: 100%;
+  border: none;
+  padding: 16px;
+  border-radius: 20px;
+  background: #2563eb;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.tier-card button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.24);
+  background: #1d4ed8;
 }
 
 .form-panel label {

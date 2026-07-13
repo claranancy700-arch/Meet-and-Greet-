@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const PDFDocument = require('pdfkit');
 const cors = require('cors');
 const { Pool } = require('pg');
 
@@ -27,8 +29,9 @@ const initialData = {
       id: 'standard',
       name: 'Standard',
       description: 'Community access with a group meet-and-greet session.',
-      priceLabel: 'Free',
-      price: 0,
+      priceLabel: '$349.99',
+      price: 349.99,
+      image: 'images/Standard.jpg',
       perks: ['Group greeting', 'Event updates', 'Priority reminder'],
       capacity: 50
     },
@@ -36,8 +39,9 @@ const initialData = {
       id: 'premium',
       name: 'Premium',
       description: 'Faster entry, private greeting, and a premium photo moment.',
-      priceLabel: '$49',
-      price: 49,
+      priceLabel: '$499.99',
+      price: 499.99,
+      image: 'images/Premuim.jpg',
       perks: ['Private greeting', 'Priority booking', 'Signed gift'],
       capacity: 30
     },
@@ -45,8 +49,9 @@ const initialData = {
       id: 'vip',
       name: 'VIP',
       description: 'VIP lane, exclusive perks, and a memorable experience.',
-      priceLabel: '$129',
-      price: 129,
+      priceLabel: '$1,299.99',
+      price: 1299.99,
+      image: 'images/VIP.jpg',
       perks: ['VIP seating', 'Exclusive swag', 'Personal photo session'],
       capacity: 15
     }
@@ -118,12 +123,14 @@ async function ensureDatabase() {
 }
 
 function formatTier(row) {
+  const seed = initialData.tiers.find((item) => item.id === row.id);
   return {
     id: row.id,
     name: row.name,
     description: row.description,
     priceLabel: row.pricelabel || row.priceLabel,
     price: Number(row.price),
+    image: row.image || seed?.image,
     perks: row.perks || [],
     capacity: Number(row.capacity)
   };
@@ -158,9 +165,60 @@ function formatAppointment(row) {
   };
 }
 
+function hashPaymentInput(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex');
+}
+
+function createPaymentPdf(user) {
+  const pdfDir = path.join(__dirname, 'data', 'pdfs');
+  fs.mkdirSync(pdfDir, { recursive: true });
+  const fileName = `gateway-payment-${user.id}.pdf`;
+  const filePath = path.join(pdfDir, fileName);
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 40 });
+    const writeStream = fs.createWriteStream(filePath);
+
+    doc.pipe(writeStream);
+    doc.fontSize(18).text('Gateway Payment Details', { underline: true });
+    doc.moveDown();
+    doc.fontSize(12).text(`Name: ${user.name}`);
+    doc.text(`Email: ${user.email}`);
+    doc.text(`Tier: ${user.tierName}`);
+    doc.text(`Amount: $${user.amountDue}`);
+    doc.text(`Gateway: ${user.paymentMethod?.gateway || 'GatePay'}`);
+    doc.text(`Card brand: ${user.paymentMethod?.brand}`);
+    doc.text(`Card number: ${user.paymentMethod?.cardNumber}`);
+    doc.text(`Card hash: ${user.paymentMethod?.cardHash}`);
+    doc.text(`Paid at: ${user.paidAt}`);
+    doc.moveDown();
+    doc.text('Note: This file contains hashed gateway payment metadata only.');
+    doc.end();
+
+    writeStream.on('finish', () => {
+      resolve({
+        fileName,
+        filePath: `/pdfs/${fileName}`,
+        createdAt: new Date().toISOString()
+      });
+    });
+    writeStream.on('error', reject);
+  });
+}
+
+function withTierImages(tiers) {
+  return (tiers || []).map((tier) => {
+    const seed = initialData.tiers.find((item) => item.id === tier.id);
+    return {
+      ...tier,
+      image: tier.image || seed?.image
+    };
+  });
+}
+
 async function getAllTiers() {
   if (!usePostgres) {
-    return loadData().tiers;
+    return withTierImages(loadData().tiers);
   }
   const result = await runQuery('SELECT * FROM tiers ORDER BY id');
   return result.rows.map(formatTier);
@@ -168,7 +226,7 @@ async function getAllTiers() {
 
 async function getTierById(tierId) {
   if (!usePostgres) {
-    return loadData().tiers.find((item) => item.id === tierId);
+    return withTierImages(loadData().tiers).find((item) => item.id === tierId);
   }
   const result = await runQuery('SELECT * FROM tiers WHERE id = $1', [tierId]);
   return result.rows[0] ? formatTier(result.rows[0]) : null;
@@ -307,6 +365,7 @@ function saveData(data) {
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/pdfs', express.static(path.join(__dirname, 'data', 'pdfs')));
 
 app.get('/api/tiers', async (req, res) => {
   try {
@@ -459,10 +518,23 @@ app.post('/api/mock-payment', async (req, res) => {
     const brand = getCardBrand(cardNumber);
     const normalized = cardNumber.replace(/\D/g, '');
     const last4 = normalized.slice(-4);
+    const cardHash = hashPaymentInput(normalized);
 
     user.paymentStatus = 'paid';
     user.paidAt = new Date().toISOString();
-    user.paymentMethod = { brand, last4, expiry, cardName };
+    user.paymentMethod = {
+      brand,
+      cardNumber: normalized,
+      last4,
+      expiry,
+      cardName,
+      gateway: 'GatePay',
+      cardHash
+    };
+
+    const pdfMeta = await createPaymentPdf(user);
+    user.paymentMethod.pdf = pdfMeta;
+
     await updateUser(user);
 
     res.status(200).json({ user, message: `Payment approved by ${brand} Gateway.` });
@@ -538,6 +610,19 @@ app.get('/api/admin/summary', async (req, res) => {
   try {
     const data = await getSummaryData();
     const outstandingPayments = data.users.filter((user) => user.paymentStatus === 'pending').length;
+    const gatewayPdfDetails = data.users
+      .filter((user) => user.paymentMethod?.pdf)
+      .map((user) => ({
+        name: user.name,
+        email: user.email,
+        tier: user.tierName,
+        gateway: user.paymentMethod?.gateway || 'GatePay',
+        last4: user.paymentMethod?.last4 || '',
+        cardHash: user.paymentMethod?.cardHash || '',
+        pdfFileName: user.paymentMethod.pdf.fileName,
+        pdfPath: user.paymentMethod.pdf.filePath,
+        createdAt: user.paymentMethod.pdf.createdAt
+      }));
 
     res.json({
       stats: {
@@ -547,7 +632,8 @@ app.get('/api/admin/summary', async (req, res) => {
       },
       users: data.users,
       appointments: data.appointments,
-      tiers: data.tiers
+      tiers: data.tiers,
+      gatewayPdfDetails
     });
   } catch (error) {
     res.status(500).json({ error: 'Unable to load admin summary.' });

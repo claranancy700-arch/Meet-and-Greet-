@@ -60,6 +60,11 @@
           <tbody></tbody>
         </table>
       </div>
+
+      <div class="table-container">
+        <h2>Gateway PDF Details</h2>
+        <div id="gateway-pdf-details" class="pdf-details-card"></div>
+      </div>
     </section>
   </main>
 
@@ -70,6 +75,7 @@
     const summaryCards = document.getElementById('summary-cards');
     const usersTable = document.getElementById('users-table').querySelector('tbody');
     const appointmentsTable = document.getElementById('appointments-table').querySelector('tbody');
+    const gatewayPdfDetails = document.getElementById('gateway-pdf-details');
 
     function showMessage(element, text, type = 'error') {
       element.textContent = text;
@@ -116,6 +122,35 @@
       });
     }
 
+    function renderGatewayPdfDetails(details) {
+      gatewayPdfDetails.innerHTML = '';
+      if (!details || details.length === 0) {
+        gatewayPdfDetails.textContent = 'No gateway PDF payment records available.';
+        return;
+      }
+
+      const list = document.createElement('div');
+      list.className = 'pdf-detail-list';
+
+      details.forEach((record) => {
+        const card = document.createElement('article');
+        card.className = 'pdf-detail-card';
+        card.innerHTML = `
+          <h3>${record.name}</h3>
+          <p><strong>Email:</strong> ${record.email}</p>
+          <p><strong>Tier:</strong> ${record.tier}</p>
+          <p><strong>Gateway:</strong> ${record.gateway}</p>
+          <p><strong>Last 4:</strong> ${record.last4}</p>
+          <p><strong>Hash:</strong> ${record.cardHash}</p>
+          <p><strong>PDF:</strong> <a href="${record.pdfPath}" target="_blank" rel="noopener">Download</a></p>
+          <p><strong>Created:</strong> ${new Date(record.createdAt).toLocaleString()}</p>
+        `;
+        list.appendChild(card);
+      });
+
+      gatewayPdfDetails.appendChild(list);
+    }
+
     loadAdmin.addEventListener('click', async () => {
       adminMessage.textContent = '';
       dashboardContent.hidden = true;
@@ -137,6 +172,7 @@
         renderSummary(result.stats);
         renderUsers(result.users);
         renderAppointments(result.appointments);
+        renderGatewayPdfDetails(result.gatewayPdfDetails);
         dashboardContent.hidden = false;
       } catch (error) {
         showMessage(adminMessage, 'Unable to load admin dashboard.', 'error');

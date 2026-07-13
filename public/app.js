@@ -20,6 +20,12 @@ const appointmentSubmitButton = document.getElementById('appointment-submit');
 let currentUser = null;
 let tiers = [];
 
+const TIER_IMAGE_FALLBACKS = {
+  standard: 'images/Standard.jpg',
+  premium: 'images/Premuim.jpg',
+  vip: 'images/VIP.jpg'
+};
+
 function drawHeroCanvas() {
   if (!heroCanvas) return;
 
@@ -67,7 +73,7 @@ async function fetchTiers() {
     card.className = 'tier-card';
     card.innerHTML = `
       <div class="tier-image-frame">
-        <img src="images/tier-${tier.id}.svg" alt="${tier.name} illustration" class="tier-image" />
+        <img src="${tier.image || TIER_IMAGE_FALLBACKS[tier.id] || `images/${tier.name}.jpg`}" alt="${tier.name}" class="tier-image" />
       </div>
       <div class="tier-top">
         <h3>${tier.name}</h3>
@@ -273,7 +279,11 @@ appointmentTime.addEventListener('change', checkAvailability);
 
 paymentForm?.querySelectorAll('input').forEach((input) => {
   input.addEventListener('input', () => {
-    input.value = input.value.replace(/[^0-9\/\s]/g, '');
+    if (input.id === 'card-name') {
+      input.value = input.value.replace(/[^a-zA-Z\s'\-\.]/g, '');
+    } else {
+      input.value = input.value.replace(/[^0-9\/\s]/g, '');
+    }
   });
 });
 
