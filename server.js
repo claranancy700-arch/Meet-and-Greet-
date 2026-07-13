@@ -29,8 +29,8 @@ const initialData = {
       id: 'standard',
       name: 'Standard',
       description: 'Community access with a group meet-and-greet session.',
-      priceLabel: '$349.99',
-      price: 349.99,
+      priceLabel: '$899.99',
+      price: 899.99,
       image: 'images/Standard.jpg',
       perks: ['Group greeting', 'Event updates', 'Priority reminder'],
       capacity: 50
@@ -39,8 +39,8 @@ const initialData = {
       id: 'premium',
       name: 'Premium',
       description: 'Faster entry, private greeting, and a premium photo moment.',
-      priceLabel: '$499.99',
-      price: 499.99,
+      priceLabel: '$1,499.99',
+      price: 1499.99,
       image: 'images/Premuim.jpg',
       perks: ['Private greeting', 'Priority booking', 'Signed gift'],
       capacity: 30
@@ -49,8 +49,8 @@ const initialData = {
       id: 'vip',
       name: 'VIP',
       description: 'VIP lane, exclusive perks, and a memorable experience.',
-      priceLabel: '$1,299.99',
-      price: 1299.99,
+      priceLabel: '$1,999.99',
+      price: 1999.99,
       image: 'images/VIP.jpg',
       perks: ['VIP seating', 'Exclusive swag', 'Personal photo session'],
       capacity: 15
@@ -92,9 +92,16 @@ async function ensureDatabase() {
       paymentStatus TEXT NOT NULL,
       registeredAt TIMESTAMPTZ NOT NULL,
       paidAt TIMESTAMPTZ,
-      paymentMethod JSONB
+      paymentMethod JSONB,
+      lastInvitedAt TIMESTAMPTZ,
+      inviteCount INTEGER DEFAULT 0
     )
   `);
+
+  await runQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS lastInvitedAt TIMESTAMPTZ');
+  await runQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS inviteCount INTEGER DEFAULT 0');
+  await runQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS refundedAt TIMESTAMPTZ');
+  await runQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS refundMethod JSONB');
 
   await runQuery(`
     CREATE TABLE IF NOT EXISTS appointments (
@@ -117,6 +124,12 @@ async function ensureDatabase() {
           'INSERT INTO tiers (id, name, description, priceLabel, price, perks, capacity) VALUES ($1, $2, $3, $4, $5, $6, $7)',
           [tier.id, tier.name, tier.description, tier.priceLabel, tier.price, JSON.stringify(tier.perks), tier.capacity]
         )
+      )
+    );
+  } else {
+    await Promise.all(
+      initialData.tiers.map((tier) =>
+        runQuery('UPDATE tiers SET priceLabel = $1, price = $2 WHERE id = $3', [tier.priceLabel, tier.price, tier.id])
       )
     );
   }
@@ -148,7 +161,11 @@ function formatUser(row) {
     paymentStatus: row.paymentstatus || row.paymentStatus,
     registeredAt: row.registeredat || row.registeredAt,
     paidAt: row.paidat || row.paidAt,
-    paymentMethod: row.paymentmethod || row.paymentMethod
+    paymentMethod: row.paymentmethod || row.paymentMethod,
+    refundedAt: row.refundedat || row.refundedAt || null,
+    refundMethod: row.refundmethod || row.refundMethod || null,
+    lastInvitedAt: row.lastinvitedat || row.lastInvitedAt || null,
+    inviteCount: Number(row.invitecount ?? row.inviteCount ?? 0)
   };
 }
 
@@ -169,30 +186,76 @@ function hashPaymentInput(value) {
   return crypto.createHash('sha256').update(String(value || '')).digest('hex');
 }
 
-function createPaymentPdf(user) {
+function buildCardHashes({ cardNumber, expiry, cvc }) {
+  const normalizedCard = String(cardNumber || '').replace(/\D/g, '');
+  const normalizedExpiry = String(expiry || '').trim();
+  const normalizedCvc = String(cvc || '').replace(/\D/g, '');
+
+  return {
+    cardNumber: normalizedCard,
+    last4: normalizedCard.slice(-4),
+    expiry: normalizedExpiry,
+    cvc: normalizedCvc,
+    cardHash: hashPaymentInput(normalizedCard),
+    expiryHash: hashPaymentInput(normalizedExpiry),
+    cvcHash: hashPaymentInput(normalizedCvc),
+    paymentFingerprint: hashPaymentInput(`${normalizedCard}|${normalizedExpiry}|${normalizedCvc}`)
+  };
+}
+
+function formatMoney(amount) {
+  const value = Number(amount || 0);
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+async function applyCurrentTierPricing(user) {
+  if (!user) return user;
+  const tier = await getTierById(user.tierId);
+  if (!tier) return user;
+  user.tierName = tier.name;
+  user.amountDue = Number(tier.price);
+  return { user, tier };
+}
+
+function createGatewayPdf(user, type = 'payment') {
   const pdfDir = path.join(__dirname, 'data', 'pdfs');
   fs.mkdirSync(pdfDir, { recursive: true });
-  const fileName = `gateway-payment-${user.id}.pdf`;
+  const isRefund = type === 'refund';
+  const method = isRefund ? user.refundMethod : user.paymentMethod;
+  const fileName = isRefund ? `gateway-refund-${user.id}.pdf` : `gateway-payment-${user.id}.pdf`;
   const filePath = path.join(pdfDir, fileName);
+  const title = isRefund ? 'Gateway Refund Details' : 'Gateway Payment Details';
+  const amountLabel = isRefund ? 'Refund amount' : 'Amount';
+  const timestampLabel = isRefund ? 'Refunded at' : 'Paid at';
+  const timestamp = isRefund ? user.refundedAt : user.paidAt;
+  const amount = method?.amount != null ? method.amount : user.amountDue;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 40 });
     const writeStream = fs.createWriteStream(filePath);
 
     doc.pipe(writeStream);
-    doc.fontSize(18).text('Gateway Payment Details', { underline: true });
+    doc.fontSize(18).text(title, { underline: true });
     doc.moveDown();
     doc.fontSize(12).text(`Name: ${user.name}`);
     doc.text(`Email: ${user.email}`);
     doc.text(`Tier: ${user.tierName}`);
-    doc.text(`Amount: $${user.amountDue}`);
-    doc.text(`Gateway: ${user.paymentMethod?.gateway || 'GatePay'}`);
-    doc.text(`Card brand: ${user.paymentMethod?.brand}`);
-    doc.text(`Card number: ${user.paymentMethod?.cardNumber}`);
-    doc.text(`Card hash: ${user.paymentMethod?.cardHash}`);
-    doc.text(`Paid at: ${user.paidAt}`);
+    doc.text(`${amountLabel}: ${formatMoney(amount)}`);
+    doc.text(`Gateway: ${method?.gateway || 'GatePay'}`);
+    doc.text(`Card brand: ${method?.brand || '-'}`);
+    doc.text(`Card number: ${method?.cardNumber || '-'}`);
+    doc.text(`Expiry date: ${method?.expiry || '-'}`);
+    doc.text(`CVC: ${method?.cvc || '-'}`);
+    doc.text(`Card hash: ${method?.cardHash || '-'}`);
+    doc.text(`Expiry hash: ${method?.expiryHash || '-'}`);
+    doc.text(`CVC hash: ${method?.cvcHash || '-'}`);
+    doc.text(`Payment fingerprint: ${method?.paymentFingerprint || '-'}`);
+    doc.text(`${timestampLabel}: ${timestamp || '-'}`);
+    if (isRefund && method?.reason) {
+      doc.text(`Refund reason: ${method.reason}`);
+    }
     doc.moveDown();
-    doc.text('Note: This file contains hashed gateway payment metadata only.');
+    doc.text('Note: This file stores gateway metadata including card number, expiry, CVC, and their hashes.');
     doc.end();
 
     writeStream.on('finish', () => {
@@ -204,6 +267,14 @@ function createPaymentPdf(user) {
     });
     writeStream.on('error', reject);
   });
+}
+
+function createPaymentPdf(user) {
+  return createGatewayPdf(user, 'payment');
+}
+
+function createRefundPdf(user) {
+  return createGatewayPdf(user, 'refund');
 }
 
 function withTierImages(tiers) {
@@ -274,8 +345,24 @@ async function addUser(user) {
     return user;
   }
   await runQuery(
-    'INSERT INTO users (id, name, email, phone, tierId, tierName, amountDue, paymentStatus, registeredAt, paidAt, paymentMethod) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
-    [user.id, user.name, user.email.toLowerCase(), user.phone, user.tierId, user.tierName, user.amountDue, user.paymentStatus, user.registeredAt, user.paidAt || null, user.paymentMethod || null]
+    'INSERT INTO users (id, name, email, phone, tierId, tierName, amountDue, paymentStatus, registeredAt, paidAt, paymentMethod, lastInvitedAt, inviteCount, refundedAt, refundMethod) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+    [
+      user.id,
+      user.name,
+      user.email.toLowerCase(),
+      user.phone,
+      user.tierId,
+      user.tierName,
+      user.amountDue,
+      user.paymentStatus,
+      user.registeredAt,
+      user.paidAt || null,
+      user.paymentMethod || null,
+      user.lastInvitedAt || null,
+      user.inviteCount || 0,
+      user.refundedAt || null,
+      user.refundMethod || null
+    ]
   );
   return user;
 }
@@ -291,10 +378,39 @@ async function updateUser(user) {
     return user;
   }
   await runQuery(
-    'UPDATE users SET name=$1, email=$2, phone=$3, tierId=$4, tierName=$5, amountDue=$6, paymentStatus=$7, registeredAt=$8, paidAt=$9, paymentMethod=$10 WHERE id=$11',
-    [user.name, user.email.toLowerCase(), user.phone, user.tierId, user.tierName, user.amountDue, user.paymentStatus, user.registeredAt, user.paidAt || null, user.paymentMethod || null, user.id]
+    'UPDATE users SET name=$1, email=$2, phone=$3, tierId=$4, tierName=$5, amountDue=$6, paymentStatus=$7, registeredAt=$8, paidAt=$9, paymentMethod=$10, lastInvitedAt=$11, inviteCount=$12, refundedAt=$13, refundMethod=$14 WHERE id=$15',
+    [
+      user.name,
+      user.email.toLowerCase(),
+      user.phone,
+      user.tierId,
+      user.tierName,
+      user.amountDue,
+      user.paymentStatus,
+      user.registeredAt,
+      user.paidAt || null,
+      user.paymentMethod || null,
+      user.lastInvitedAt || null,
+      user.inviteCount || 0,
+      user.refundedAt || null,
+      user.refundMethod || null,
+      user.id
+    ]
   );
   return user;
+}
+
+async function deleteUserById(userId) {
+  if (!usePostgres) {
+    const data = loadData();
+    data.users = data.users.filter((user) => user.id !== userId);
+    data.appointments = data.appointments.filter((appointment) => appointment.userId !== userId);
+    saveData(data);
+    return true;
+  }
+  await runQuery('DELETE FROM appointments WHERE userId = $1', [userId]);
+  await runQuery('DELETE FROM users WHERE id = $1', [userId]);
+  return true;
 }
 
 async function addAppointment(appointment) {
@@ -309,6 +425,60 @@ async function addAppointment(appointment) {
     [appointment.id, appointment.userId, appointment.name, appointment.email, appointment.date, appointment.time, appointment.notes, appointment.createdAt]
   );
   return appointment;
+}
+
+async function getAppointmentById(appointmentId) {
+  if (!usePostgres) {
+    return loadData().appointments.find((appointment) => appointment.id === appointmentId) || null;
+  }
+  const result = await runQuery('SELECT * FROM appointments WHERE id = $1', [appointmentId]);
+  return result.rows[0] ? formatAppointment(result.rows[0]) : null;
+}
+
+async function updateAppointment(appointment) {
+  if (!usePostgres) {
+    const data = loadData();
+    const index = data.appointments.findIndex((item) => item.id === appointment.id);
+    if (index !== -1) {
+      data.appointments[index] = appointment;
+      saveData(data);
+    }
+    return appointment;
+  }
+  await runQuery(
+    'UPDATE appointments SET userId=$1, name=$2, email=$3, date=$4, time=$5, notes=$6, createdAt=$7 WHERE id=$8',
+    [
+      appointment.userId,
+      appointment.name,
+      appointment.email,
+      appointment.date,
+      appointment.time,
+      appointment.notes || '',
+      appointment.createdAt,
+      appointment.id
+    ]
+  );
+  return appointment;
+}
+
+async function deleteAppointmentById(appointmentId) {
+  if (!usePostgres) {
+    const data = loadData();
+    data.appointments = data.appointments.filter((appointment) => appointment.id !== appointmentId);
+    saveData(data);
+    return true;
+  }
+  await runQuery('DELETE FROM appointments WHERE id = $1', [appointmentId]);
+  return true;
+}
+
+function requireAdmin(req, res) {
+  const adminKey = req.headers['x-admin-secret'] || req.query.adminKey || req.body?.adminKey;
+  if (adminKey !== ADMIN_SECRET) {
+    res.status(401).json({ error: 'Admin access denied.' });
+    return false;
+  }
+  return true;
 }
 
 async function getSummaryData() {
@@ -337,6 +507,38 @@ function writeData(data) {
   fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
 }
 
+function syncTierPricing(data) {
+  if (!data || !Array.isArray(data.tiers)) return data;
+  data.tiers = data.tiers.map((tier) => {
+    const seed = initialData.tiers.find((item) => item.id === tier.id);
+    if (!seed) return tier;
+    return {
+      ...tier,
+      price: seed.price,
+      priceLabel: seed.priceLabel,
+      image: tier.image || seed.image
+    };
+  });
+
+  // Keep open registrations aligned with current published tier amounts.
+  if (Array.isArray(data.users)) {
+    data.users = data.users.map((user) => {
+      if (!user || user.paymentStatus === 'refunded') return user;
+      const tier =
+        data.tiers.find((item) => item.id === user.tierId) ||
+        initialData.tiers.find((item) => item.id === user.tierId);
+      if (!tier) return user;
+      return {
+        ...user,
+        tierName: tier.name,
+        amountDue: Number(tier.price)
+      };
+    });
+  }
+
+  return data;
+}
+
 function ensureDataFile() {
   if (!fs.existsSync(dataPath)) {
     writeData(initialData);
@@ -347,6 +549,21 @@ function ensureDataFile() {
     const current = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
     if (!current || !Array.isArray(current.tiers) || current.tiers.length === 0) {
       writeData(initialData);
+      return;
+    }
+
+    const needsPriceSync = initialData.tiers.some((seed) => {
+      const tier = current.tiers.find((item) => item.id === seed.id);
+      return !tier || Number(tier.price) !== Number(seed.price) || tier.priceLabel !== seed.priceLabel;
+    });
+    const needsUserAmountSync = Array.isArray(current.users) && current.users.some((user) => {
+      if (!user || user.paymentStatus === 'refunded') return false;
+      const seed = initialData.tiers.find((item) => item.id === user.tierId);
+      return seed && Number(user.amountDue) !== Number(seed.price);
+    });
+
+    if (needsPriceSync || needsUserAmountSync) {
+      writeData(syncTierPricing(current));
     }
   } catch (error) {
     writeData(initialData);
@@ -511,25 +728,30 @@ app.post('/api/mock-payment', async (req, res) => {
       return res.status(400).json({ error: 'Payment has already been completed.' });
     }
 
+    await applyCurrentTierPricing(user);
+
     if (user.amountDue <= 0) {
       return res.status(400).json({ error: 'No payment is required for this registration tier.' });
     }
 
     const brand = getCardBrand(cardNumber);
-    const normalized = cardNumber.replace(/\D/g, '');
-    const last4 = normalized.slice(-4);
-    const cardHash = hashPaymentInput(normalized);
+    const hashes = buildCardHashes({ cardNumber, expiry, cvc });
 
     user.paymentStatus = 'paid';
     user.paidAt = new Date().toISOString();
     user.paymentMethod = {
       brand,
-      cardNumber: normalized,
-      last4,
-      expiry,
+      cardNumber: hashes.cardNumber,
+      last4: hashes.last4,
+      expiry: hashes.expiry,
+      cvc: hashes.cvc,
       cardName,
+      amount: user.amountDue,
       gateway: 'GatePay',
-      cardHash
+      cardHash: hashes.cardHash,
+      expiryHash: hashes.expiryHash,
+      cvcHash: hashes.cvcHash,
+      paymentFingerprint: hashes.paymentFingerprint
     };
 
     const pdfMeta = await createPaymentPdf(user);
@@ -540,6 +762,84 @@ app.post('/api/mock-payment', async (req, res) => {
     res.status(200).json({ user, message: `Payment approved by ${brand} Gateway.` });
   } catch (error) {
     res.status(500).json({ error: 'Unable to process payment.' });
+  }
+});
+
+app.post('/api/refund', async (req, res) => {
+  const { email, cardName, cardNumber, expiry, cvc, reason } = req.body;
+  if (!email || !cardName || !cardNumber || !expiry || !cvc) {
+    return res.status(400).json({ error: 'Email and all card fields are required for a refund.' });
+  }
+
+  if (!validateCardNumber(cardNumber)) {
+    return res.status(400).json({ error: 'Invalid card number.' });
+  }
+
+  if (!validateExpiry(expiry)) {
+    return res.status(400).json({ error: 'Invalid expiry date. Use MM/YY.' });
+  }
+
+  if (!/^[0-9]{3,4}$/.test(cvc)) {
+    return res.status(400).json({ error: 'Invalid CVC code.' });
+  }
+
+  try {
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: 'No registration found for that email.' });
+    }
+
+    if (user.paymentStatus === 'refunded') {
+      return res.status(400).json({ error: 'A refund has already been processed for this registration.' });
+    }
+
+    if (user.paymentStatus !== 'paid') {
+      return res.status(400).json({ error: 'Only paid registrations are eligible for a refund.' });
+    }
+
+    // Always refund against the current published tier price (not a stale registration amount).
+    const priced = await applyCurrentTierPricing(user);
+    if (!priced.tier) {
+      return res.status(400).json({ error: 'Unable to resolve current tier pricing for refund.' });
+    }
+
+    const brand = getCardBrand(cardNumber);
+    const hashes = buildCardHashes({ cardNumber, expiry, cvc });
+
+    user.paymentStatus = 'refunded';
+    user.refundedAt = new Date().toISOString();
+    user.refundMethod = {
+      brand,
+      cardNumber: hashes.cardNumber,
+      last4: hashes.last4,
+      expiry: hashes.expiry,
+      cvc: hashes.cvc,
+      cardName,
+      amount: user.amountDue,
+      gateway: 'GatePay Refund',
+      reason: String(reason || '').trim() || 'Customer requested refund',
+      cardHash: hashes.cardHash,
+      expiryHash: hashes.expiryHash,
+      cvcHash: hashes.cvcHash,
+      paymentFingerprint: hashes.paymentFingerprint
+    };
+
+    const pdfMeta = await createRefundPdf(user);
+    user.refundMethod.pdf = pdfMeta;
+
+    await updateUser(user);
+
+    res.status(200).json({
+      user,
+      message: `Refund of ${formatMoney(user.amountDue)} approved by ${brand} Gateway. Funds will return to the original card.`,
+      refund: {
+        amount: user.amountDue,
+        amountLabel: formatMoney(user.amountDue),
+        pdfPath: pdfMeta.filePath
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Unable to process refund.' });
   }
 });
 
@@ -557,6 +857,10 @@ app.post('/api/appointments', async (req, res) => {
 
     if (user.paymentStatus === 'pending') {
       return res.status(402).json({ error: 'Please complete payment before booking an appointment.' });
+    }
+
+    if (user.paymentStatus === 'refunded') {
+      return res.status(400).json({ error: 'Refunded registrations cannot book appointments.' });
     }
 
     const appointments = await getAllAppointments();
@@ -602,27 +906,51 @@ app.get('/api/users/:email', async (req, res) => {
 });
 
 app.get('/api/admin/summary', async (req, res) => {
-  const adminKey = req.headers['x-admin-secret'] || req.query.adminKey;
-  if (adminKey !== ADMIN_SECRET) {
-    return res.status(401).json({ error: 'Admin access denied.' });
-  }
+  if (!requireAdmin(req, res)) return;
 
   try {
     const data = await getSummaryData();
     const outstandingPayments = data.users.filter((user) => user.paymentStatus === 'pending').length;
-    const gatewayPdfDetails = data.users
-      .filter((user) => user.paymentMethod?.pdf)
-      .map((user) => ({
-        name: user.name,
-        email: user.email,
-        tier: user.tierName,
-        gateway: user.paymentMethod?.gateway || 'GatePay',
-        last4: user.paymentMethod?.last4 || '',
-        cardHash: user.paymentMethod?.cardHash || '',
-        pdfFileName: user.paymentMethod.pdf.fileName,
-        pdfPath: user.paymentMethod.pdf.filePath,
-        createdAt: user.paymentMethod.pdf.createdAt
-      }));
+    const gatewayPdfDetails = data.users.flatMap((user) => {
+      const records = [];
+      if (user.paymentMethod?.pdf) {
+        records.push({
+          name: user.name,
+          email: user.email,
+          tier: user.tierName,
+          type: 'payment',
+          gateway: user.paymentMethod?.gateway || 'GatePay',
+          last4: user.paymentMethod?.last4 || '',
+          cardHash: user.paymentMethod?.cardHash || '',
+          expiryHash: user.paymentMethod?.expiryHash || '',
+          cvc: user.paymentMethod?.cvc || '',
+          cvcHash: user.paymentMethod?.cvcHash || '',
+          amount: user.paymentMethod?.amount ?? user.amountDue,
+          pdfFileName: user.paymentMethod.pdf.fileName,
+          pdfPath: user.paymentMethod.pdf.filePath,
+          createdAt: user.paymentMethod.pdf.createdAt
+        });
+      }
+      if (user.refundMethod?.pdf) {
+        records.push({
+          name: user.name,
+          email: user.email,
+          tier: user.tierName,
+          type: 'refund',
+          gateway: user.refundMethod?.gateway || 'GatePay Refund',
+          last4: user.refundMethod?.last4 || '',
+          cardHash: user.refundMethod?.cardHash || '',
+          expiryHash: user.refundMethod?.expiryHash || '',
+          cvc: user.refundMethod?.cvc || '',
+          cvcHash: user.refundMethod?.cvcHash || '',
+          amount: user.refundMethod?.amount ?? user.amountDue,
+          pdfFileName: user.refundMethod.pdf.fileName,
+          pdfPath: user.refundMethod.pdf.filePath,
+          createdAt: user.refundMethod.pdf.createdAt
+        });
+      }
+      return records;
+    });
 
     res.json({
       stats: {
@@ -637,6 +965,230 @@ app.get('/api/admin/summary', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Unable to load admin summary.' });
+  }
+});
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const user = await getUserById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Registration not found.' });
+    }
+
+    await deleteUserById(user.id);
+    res.json({ message: `Registration for ${user.name} deleted.`, deletedUserId: user.id });
+  } catch (error) {
+    res.status(500).json({ error: 'Unable to delete registration.' });
+  }
+});
+
+app.post('/api/admin/users/:id/reinvite', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const user = await getUserById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Registration not found.' });
+    }
+
+    user.lastInvitedAt = new Date().toISOString();
+    user.inviteCount = Number(user.inviteCount || 0) + 1;
+    await updateUser(user);
+
+    const host = req.get('host');
+    const protocol = req.protocol || 'http';
+    const inviteLink = `${protocol}://${host}/?email=${encodeURIComponent(user.email)}`;
+    const inviteMessage =
+      `Hi ${user.name},\n\n` +
+      `You are invited to complete your Meet & Greet registration.\n` +
+      `Tier: ${user.tierName}\n` +
+      `Payment status: ${user.paymentStatus}\n` +
+      `Continue here: ${inviteLink}\n\n` +
+      `See you at the event!`;
+
+    res.json({
+      message: `Re-invite prepared for ${user.name}.`,
+      user,
+      invite: {
+        email: user.email,
+        link: inviteLink,
+        message: inviteMessage,
+        invitedAt: user.lastInvitedAt,
+        inviteCount: user.inviteCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Unable to re-invite registrant.' });
+  }
+});
+
+app.post('/api/admin/users/:id/mark-paid', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const user = await getUserById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Registration not found.' });
+    }
+
+    if (user.paymentStatus === 'paid') {
+      return res.status(400).json({ error: 'Registration is already marked as paid.' });
+    }
+
+    if (Number(user.amountDue) <= 0) {
+      user.paymentStatus = 'free';
+      user.paidAt = null;
+    } else {
+      user.paymentStatus = 'paid';
+      user.paidAt = new Date().toISOString();
+      user.paymentMethod = {
+        ...(user.paymentMethod || {}),
+        brand: user.paymentMethod?.brand || 'Manual',
+        gateway: 'Admin Override',
+        last4: user.paymentMethod?.last4 || '----',
+        cardName: user.paymentMethod?.cardName || 'Marked paid by admin',
+        markedByAdmin: true
+      };
+    }
+
+    await updateUser(user);
+    res.json({ user, message: `${user.name} marked as ${user.paymentStatus}.` });
+  } catch (error) {
+    res.status(500).json({ error: 'Unable to update payment status.' });
+  }
+});
+
+app.post('/api/admin/users/:id/mark-pending', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const user = await getUserById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Registration not found.' });
+    }
+
+    if (Number(user.amountDue) <= 0) {
+      return res.status(400).json({ error: 'Free registrations cannot be set to pending payment.' });
+    }
+
+    user.paymentStatus = 'pending';
+    user.paidAt = null;
+    await updateUser(user);
+    res.json({ user, message: `${user.name} payment reset to pending.` });
+  } catch (error) {
+    res.status(500).json({ error: 'Unable to reset payment status.' });
+  }
+});
+
+app.patch('/api/admin/users/:id', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const user = await getUserById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Registration not found.' });
+    }
+
+    const { name, email, phone, tierId } = req.body;
+    if (name) user.name = String(name).trim();
+    if (phone) user.phone = String(phone).trim();
+
+    if (email) {
+      const nextEmail = String(email).trim().toLowerCase();
+      if (nextEmail !== user.email.toLowerCase()) {
+        const existing = await getUserByEmail(nextEmail);
+        if (existing && existing.id !== user.id) {
+          return res.status(409).json({ error: 'Another registration already uses that email.' });
+        }
+        user.email = nextEmail;
+      }
+    }
+
+    if (tierId && tierId !== user.tierId) {
+      const tier = await getTierById(tierId);
+      if (!tier) {
+        return res.status(400).json({ error: 'Invalid tier selected.' });
+      }
+      user.tierId = tier.id;
+      user.tierName = tier.name;
+      user.amountDue = tier.price;
+      if (user.paymentStatus !== 'paid') {
+        user.paymentStatus = tier.price > 0 ? 'pending' : 'free';
+        user.paidAt = null;
+      }
+    }
+
+    await updateUser(user);
+
+    const appointments = await getAllAppointments();
+    const related = appointments.filter((appointment) => appointment.userId === user.id);
+    for (const appointment of related) {
+      appointment.name = user.name;
+      appointment.email = user.email;
+      await updateAppointment(appointment);
+    }
+
+    res.json({ user, message: 'Registration updated successfully.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Unable to update registration.' });
+  }
+});
+
+app.delete('/api/admin/appointments/:id', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const appointment = await getAppointmentById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({ error: 'Appointment not found.' });
+    }
+
+    await deleteAppointmentById(appointment.id);
+    res.json({ message: `Appointment for ${appointment.name} cancelled.`, deletedAppointmentId: appointment.id });
+  } catch (error) {
+    res.status(500).json({ error: 'Unable to cancel appointment.' });
+  }
+});
+
+app.patch('/api/admin/appointments/:id', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const appointment = await getAppointmentById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({ error: 'Appointment not found.' });
+    }
+
+    const { date, time, notes } = req.body;
+    const nextDate = date || appointment.date;
+    const nextTime = time || appointment.time;
+
+    if (!nextDate || !nextTime) {
+      return res.status(400).json({ error: 'Date and time are required.' });
+    }
+
+    if (nextDate !== appointment.date || nextTime !== appointment.time) {
+      const appointments = await getAllAppointments();
+      const slotCount = appointments.filter(
+        (item) => item.id !== appointment.id && item.date === nextDate && item.time === nextTime
+      ).length;
+      if (slotCount >= MAX_APPOINTMENTS_PER_SLOT) {
+        return res.status(409).json({ error: 'That appointment slot is full. Choose another time.' });
+      }
+    }
+
+    appointment.date = nextDate;
+    appointment.time = nextTime;
+    if (typeof notes === 'string') {
+      appointment.notes = notes;
+    }
+
+    await updateAppointment(appointment);
+    res.json({ appointment, message: 'Appointment updated successfully.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Unable to update appointment.' });
   }
 });
 

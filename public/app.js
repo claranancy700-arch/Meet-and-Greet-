@@ -16,9 +16,19 @@ const appointmentDate = document.getElementById('appointment-date');
 const appointmentTime = document.getElementById('appointment-time');
 const appointmentAvailability = document.getElementById('appointment-availability');
 const appointmentSubmitButton = document.getElementById('appointment-submit');
+const refundLookupForm = document.getElementById('refund-lookup-form');
+const refundLookupMessage = document.getElementById('refund-lookup-message');
+const refundModalBackdrop = document.getElementById('refund-modal-backdrop');
+const refundModalClose = document.getElementById('refund-modal-close');
+const refundSummary = document.getElementById('refund-summary');
+const refundForm = document.getElementById('refund-form');
+const refundMessage = document.getElementById('refund-message');
+const refundEmailInput = document.getElementById('refund-email');
+const refundReasonInput = document.getElementById('refund-reason');
 
 let currentUser = null;
 let tiers = [];
+let refundContext = null;
 
 const TIER_IMAGE_FALLBACKS = {
   standard: 'images/Standard.jpg',
@@ -103,13 +113,60 @@ function showMessage(element, text, type = 'success') {
 
 function setPaymentModalVisible(visible) {
   if (visible) {
+    setRefundModalVisible(false);
     paymentModalBackdrop.hidden = false;
     document.body.style.overflow = 'hidden';
     paymentModalBackdrop.scrollTop = 0;
   } else {
     paymentModalBackdrop.hidden = true;
-    document.body.style.overflow = '';
+    if (!refundModalBackdrop || refundModalBackdrop.hidden) {
+      document.body.style.overflow = '';
+    }
   }
+}
+
+function setRefundModalVisible(visible) {
+  if (!refundModalBackdrop) return;
+  if (visible) {
+    setPaymentModalVisible(false);
+    refundModalBackdrop.hidden = false;
+    document.body.style.overflow = 'hidden';
+    refundModalBackdrop.scrollTop = 0;
+  } else {
+    refundModalBackdrop.hidden = true;
+    if (!paymentModalBackdrop || paymentModalBackdrop.hidden) {
+      document.body.style.overflow = '';
+    }
+  }
+}
+
+function formatMoneyLabel(amount) {
+  const value = Number(amount || 0);
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function openRefundGateway(user, reason = '') {
+  const tier = tiers.find((item) => item.id === user.tierId);
+  // Prefer live tier pricing so refund UI never shows a stale registration amount.
+  const refundAmount = tier ? tier.price : user.amountDue;
+  const refundAmountLabel = tier ? tier.priceLabel : formatMoneyLabel(user.amountDue);
+
+  refundContext = {
+    email: user.email,
+    user: { ...user, amountDue: refundAmount, tierName: tier ? tier.name : user.tierName },
+    reason
+  };
+
+  refundSummary.innerHTML = `
+    <p><strong>Name:</strong> ${user.name}</p>
+    <p><strong>Email:</strong> ${user.email}</p>
+    <p><strong>Tier:</strong> ${tier ? tier.name : user.tierName}</p>
+    <p><strong>Refund amount:</strong> ${refundAmountLabel}</p>
+    <p>Enter card details to authorize your refund through GatePay.</p>
+  `;
+  refundMessage.textContent = '';
+  refundForm?.reset();
+  setRefundModalVisible(true);
 }
 
 function updatePaymentModal() {
@@ -119,16 +176,21 @@ function updatePaymentModal() {
   }
 
   const tier = tiers.find((item) => item.id === currentUser.tierId);
+  const amountLabel = tier ? tier.priceLabel : formatMoneyLabel(currentUser.amountDue);
   paymentSummary.innerHTML = `
     <p><strong>Tier:</strong> ${tier ? tier.name : currentUser.tierName}</p>
-    <p><strong>Amount due:</strong> ${tier ? tier.priceLabel : `$${currentUser.amountDue}`}</p>
+    <p><strong>Amount due:</strong> ${amountLabel}</p>
     <p>Enter card details to complete your checkout.</p>
   `;
   setPaymentModalVisible(true);
 }
 
 function updateAppointmentSection() {
-  if (!currentUser || (currentUser.paymentStatus === 'pending' && currentUser.amountDue > 0)) {
+  if (
+    !currentUser ||
+    currentUser.paymentStatus === 'refunded' ||
+    (currentUser.paymentStatus === 'pending' && currentUser.amountDue > 0)
+  ) {
     appointmentSection.hidden = true;
     return;
   }
@@ -268,23 +330,123 @@ paymentModalBackdrop.addEventListener('click', (event) => {
   }
 });
 
+refundModalClose?.addEventListener('click', () => setRefundModalVisible(false));
+
+refundModalBackdrop?.addEventListener('click', (event) => {
+  if (event.target === refundModalBackdrop) {
+    setRefundModalVisible(false);
+  }
+});
+
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     setPaymentModalVisible(false);
+    setRefundModalVisible(false);
   }
 });
 
 appointmentDate.addEventListener('change', checkAvailability);
 appointmentTime.addEventListener('change', checkAvailability);
 
-paymentForm?.querySelectorAll('input').forEach((input) => {
-  input.addEventListener('input', () => {
-    if (input.id === 'card-name') {
-      input.value = input.value.replace(/[^a-zA-Z\s'\-\.]/g, '');
-    } else {
-      input.value = input.value.replace(/[^0-9\/\s]/g, '');
-    }
+function bindCardInputFilters(form) {
+  form?.querySelectorAll('input').forEach((input) => {
+    input.addEventListener('input', () => {
+      if (input.name === 'cardName' || input.id.includes('card-name')) {
+        input.value = input.value.replace(/[^a-zA-Z\s'\-\.]/g, '');
+      } else {
+        input.value = input.value.replace(/[^0-9\/\s]/g, '');
+      }
+    });
   });
+}
+
+bindCardInputFilters(paymentForm);
+bindCardInputFilters(refundForm);
+
+refundLookupForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  refundLookupMessage.textContent = '';
+
+  const email = refundEmailInput.value.trim();
+  const reason = refundReasonInput.value.trim();
+  if (!email) {
+    showMessage(refundLookupMessage, 'Enter the email used for registration.', 'error');
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/users/${encodeURIComponent(email)}`);
+    const result = await response.json();
+    if (!response.ok) {
+      showMessage(refundLookupMessage, result.error || 'Registration not found.', 'error');
+      return;
+    }
+
+    if (result.paymentStatus === 'refunded') {
+      showMessage(refundLookupMessage, 'A refund has already been processed for this registration.', 'error');
+      return;
+    }
+
+    if (result.paymentStatus !== 'paid') {
+      showMessage(refundLookupMessage, 'Only paid registrations can apply for a refund.', 'error');
+      return;
+    }
+
+    showMessage(refundLookupMessage, 'Registration found. Opening secure refund gateway…', 'success');
+    openRefundGateway(result, reason);
+  } catch (error) {
+    showMessage(refundLookupMessage, 'Unable to start refund request.', 'error');
+  }
+});
+
+refundForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!refundContext?.email) {
+    showMessage(refundMessage, 'Start from the Apply for refund section first.', 'error');
+    return;
+  }
+
+  refundMessage.textContent = '';
+  const formData = new FormData(refundForm);
+  const payload = {
+    email: refundContext.email,
+    cardName: formData.get('cardName').trim(),
+    cardNumber: formData.get('cardNumber').trim(),
+    expiry: formData.get('expiry').trim(),
+    cvc: formData.get('cvc').trim(),
+    reason: refundContext.reason || ''
+  };
+
+  if (!payload.cardName || !payload.cardNumber || !payload.expiry || !payload.cvc) {
+    showMessage(refundMessage, 'Please fill in all card details.', 'error');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/refund', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      showMessage(refundMessage, result.error || 'Refund failed.', 'error');
+      return;
+    }
+
+    if (currentUser && currentUser.email?.toLowerCase() === result.user.email.toLowerCase()) {
+      currentUser = result.user;
+      updateAppointmentSection();
+    }
+
+    showMessage(refundMessage, result.message || 'Refund completed successfully.');
+    showMessage(refundLookupMessage, result.message || 'Refund completed successfully.', 'success');
+    refundForm.reset();
+    refundContext = null;
+    setTimeout(() => setRefundModalVisible(false), 1400);
+  } catch (error) {
+    showMessage(refundMessage, 'Unable to complete refund.', 'error');
+  }
 });
 
 appointmentForm.addEventListener('submit', async (event) => {

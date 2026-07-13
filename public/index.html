@@ -17,6 +17,7 @@
         <div class="hero-actions">
           <a href="#tiers" class="button primary">Explore Tiers</a>
           <a href="#registration" class="button secondary">Start Registration</a>
+          <a href="#refund" class="button secondary">Apply for Refund</a>
         </div>
       </div>
       <div class="hero-panel">
@@ -55,6 +56,39 @@
         <h2>Choose the moment that fits your style.</h2>
       </div>
       <div id="tier-cards" class="tier-cards"></div>
+
+      <div class="refund-benefits" id="refund-benefits">
+        <span class="eyebrow">Peace of mind</span>
+        <h2>REFUND BENEFITS</h2>
+        <ul>
+          <li><strong>Full refund protection</strong> on eligible paid passes before your appointment window.</li>
+          <li><strong>Same-card payout</strong> — refunds route back through the secure GatePay gateway.</li>
+          <li><strong>Hashed verification</strong> of card number, expiry date, and CVC for every refund request.</li>
+          <li><strong>Instant status update</strong> once your refund is approved by the gateway.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="refund-section" id="refund">
+      <div class="section-heading">
+        <span class="eyebrow">Need a refund?</span>
+        <h2>Apply for refund</h2>
+      </div>
+      <div class="form-panel refund-panel">
+        <p class="refund-intro">Paid registrants can request a refund through the same secure payment gateway. We verify your card details with hashing, then process the refund.</p>
+        <form id="refund-lookup-form">
+          <div class="field-group">
+            <label for="refund-email">Registration email</label>
+            <input type="email" id="refund-email" name="email" placeholder="you@example.com" required />
+          </div>
+          <div class="field-group">
+            <label for="refund-reason">Reason (optional)</label>
+            <textarea id="refund-reason" name="reason" rows="2" placeholder="Why are you requesting a refund?"></textarea>
+          </div>
+          <button type="submit" class="button primary">Continue to refund gateway</button>
+        </form>
+        <div id="refund-lookup-message" class="message"></div>
+      </div>
     </section>
 
     <section class="registration-section" id="registration">
@@ -148,6 +182,67 @@
           <strong>Secure payment</strong> — Your card details are captured safely in this guided checkout flow.
         </div>
         <div id="payment-message" class="message"></div>
+      </div>
+    </div>
+
+    <div id="refund-modal-backdrop" class="modal-backdrop" hidden>
+      <div class="modal-panel payment-card">
+        <div class="modal-header">
+          <div>
+            <span class="eyebrow">Refund gateway</span>
+            <button type="button" class="button close-button" id="refund-modal-close" aria-label="Close refund popup">×</button>
+            <h2 style="margin: 0;">Apply for refund.</h2>
+          </div>
+        </div>
+
+        <div class="payment-gateway-header refund-gateway-header">
+          <div class="gateway-brand">
+            <span class="gateway-label">Refund Gateway</span>
+            <h3>Secure refund checkout</h3>
+            <p class="gateway-subtitle">Card number, expiry, and CVC are hashed for verification and PDF records.</p>
+          </div>
+          <div class="gateway-logo">GatePay</div>
+        </div>
+
+        <div class="payment-meta-grid">
+          <div id="refund-summary" class="payment-summary payment-summary-card"></div>
+          <div class="accepted-cards">
+            <span class="accepted-label">Refund to original card</span>
+            <div class="card-logos">
+              <span class="card-logo"><img src="images/visa.svg" alt="Visa" /></span>
+              <span class="card-logo"><img src="images/mastercard.svg" alt="Mastercard" /></span>
+              <span class="card-logo"><img src="images/amex.svg" alt="American Express" /></span>
+              <span class="card-logo"><img src="images/apple-pay.svg" alt="Apple Pay" /></span>
+              <span class="card-logo"><img src="images/paypal.svg" alt="PayPal" /></span>
+            </div>
+          </div>
+        </div>
+
+        <form id="refund-form" class="payment-form">
+          <div class="field-group">
+            <label for="refund-card-name">Cardholder name</label>
+            <input type="text" id="refund-card-name" name="cardName" placeholder="Jane Doe" required />
+          </div>
+          <div class="field-group">
+            <label for="refund-card-number">Card number</label>
+            <input type="text" id="refund-card-number" name="cardNumber" placeholder="4242 4242 4242 4242" maxlength="19" inputmode="numeric" required />
+          </div>
+          <div class="field-row payment-fields-row">
+            <div class="field-group">
+              <label for="refund-card-expiry">Expiry date</label>
+              <input type="text" id="refund-card-expiry" name="expiry" placeholder="MM/YY" maxlength="5" required />
+            </div>
+            <div class="field-group">
+              <label for="refund-card-cvc">CVC</label>
+              <input type="text" id="refund-card-cvc" name="cvc" placeholder="123" maxlength="4" inputmode="numeric" required />
+            </div>
+          </div>
+          <button type="submit" class="button primary">Confirm refund</button>
+        </form>
+
+        <div class="secure-note">
+          <strong>Secure refund</strong> — Update Payment details        </div>
+        <div id="refund-message" class="message"></div>
       </div>
     </div>
 

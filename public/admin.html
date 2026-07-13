@@ -12,7 +12,7 @@
       <div class="hero-copy">
         <span class="eyebrow">Admin Dashboard</span>
         <h1>Manage registrations, appointments, and payments.</h1>
-        <p>Enter your admin secret to view event performance, outstanding payments, and attendee details.</p>
+        <p>Enter your admin secret to view event performance, outstanding payments, and attendee details. Use action buttons to delete, re-invite, update payment, or reschedule.</p>
       </div>
     </div>
   </header>
@@ -23,22 +23,32 @@
         <label for="admin-key">Admin Secret</label>
         <input type="password" id="admin-key" placeholder="Enter admin secret" />
       </div>
-      <button id="load-admin" class="button primary">Load Dashboard</button>
+      <div class="admin-toolbar">
+        <button id="load-admin" class="button primary">Load Dashboard</button>
+        <button id="refresh-admin" class="button secondary" type="button" hidden>Refresh</button>
+      </div>
       <div id="admin-message" class="message"></div>
     </section>
 
     <section id="dashboard-content" class="admin-card" hidden>
       <div id="summary-cards" class="dashboard-grid"></div>
+
       <div class="table-container">
-        <h2>Registrations</h2>
+        <div class="table-header-row">
+          <h2>Registrations</h2>
+          <p class="table-hint">Delete, re-invite, mark paid/pending, or edit registrant details.</p>
+        </div>
         <table class="table-list" id="users-table">
           <thead>
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th>Phone</th>
               <th>Tier</th>
               <th>Payment</th>
               <th>Registered</th>
+              <th>Invites</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -46,7 +56,10 @@
       </div>
 
       <div class="table-container">
-        <h2>Appointments</h2>
+        <div class="table-header-row">
+          <h2>Appointments</h2>
+          <p class="table-hint">Reschedule or cancel booked appointment slots.</p>
+        </div>
         <table class="table-list" id="appointments-table">
           <thead>
             <tr>
@@ -55,6 +68,7 @@
               <th>Date</th>
               <th>Time</th>
               <th>Notes</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -68,18 +82,171 @@
     </section>
   </main>
 
+  <div id="edit-user-modal" class="modal-backdrop" hidden>
+    <div class="modal-panel admin-modal-panel">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">Edit registration</span>
+          <h2>Update registrant details</h2>
+        </div>
+        <button type="button" class="button close-button" data-close-modal="edit-user-modal" aria-label="Close">×</button>
+      </div>
+      <form id="edit-user-form" class="admin-form">
+        <input type="hidden" id="edit-user-id" />
+        <div class="field-group">
+          <label for="edit-user-name">Name</label>
+          <input id="edit-user-name" required />
+        </div>
+        <div class="field-group">
+          <label for="edit-user-email">Email</label>
+          <input id="edit-user-email" type="email" required />
+        </div>
+        <div class="field-group">
+          <label for="edit-user-phone">Phone</label>
+          <input id="edit-user-phone" required />
+        </div>
+        <div class="field-group">
+          <label for="edit-user-tier">Tier</label>
+          <select id="edit-user-tier" required></select>
+        </div>
+        <div id="edit-user-message" class="message"></div>
+        <button type="submit" class="button primary">Save changes</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="reschedule-modal" class="modal-backdrop" hidden>
+    <div class="modal-panel admin-modal-panel">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">Reschedule</span>
+          <h2>Update appointment slot</h2>
+        </div>
+        <button type="button" class="button close-button" data-close-modal="reschedule-modal" aria-label="Close">×</button>
+      </div>
+      <form id="reschedule-form" class="admin-form">
+        <input type="hidden" id="reschedule-appointment-id" />
+        <div class="field-group">
+          <label for="reschedule-date">Date</label>
+          <input id="reschedule-date" type="date" required />
+        </div>
+        <div class="field-group">
+          <label for="reschedule-time">Time</label>
+          <select id="reschedule-time" required>
+            <option value="10:00">10:00 AM</option>
+            <option value="11:00">11:00 AM</option>
+            <option value="13:00">1:00 PM</option>
+            <option value="14:00">2:00 PM</option>
+            <option value="15:00">3:00 PM</option>
+            <option value="16:00">4:00 PM</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="reschedule-notes">Notes</label>
+          <textarea id="reschedule-notes" rows="3" placeholder="Optional notes"></textarea>
+        </div>
+        <div id="reschedule-message" class="message"></div>
+        <button type="submit" class="button primary">Save appointment</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="invite-modal" class="modal-backdrop" hidden>
+    <div class="modal-panel admin-modal-panel">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">Re-invite</span>
+          <h2>Invite details ready</h2>
+        </div>
+        <button type="button" class="button close-button" data-close-modal="invite-modal" aria-label="Close">×</button>
+      </div>
+      <div class="invite-details">
+        <p id="invite-summary"></p>
+        <div class="field-group">
+          <label for="invite-link">Invite link</label>
+          <input id="invite-link" readonly />
+        </div>
+        <div class="field-group">
+          <label for="invite-message-text">Message</label>
+          <textarea id="invite-message-text" rows="8" readonly></textarea>
+        </div>
+        <div class="admin-action-row">
+          <button type="button" id="copy-invite-link" class="button secondary">Copy link</button>
+          <button type="button" id="copy-invite-message" class="button secondary">Copy message</button>
+          <a id="mailto-invite" class="button primary" href="#">Open email</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const loadAdmin = document.getElementById('load-admin');
+    const refreshAdmin = document.getElementById('refresh-admin');
     const adminMessage = document.getElementById('admin-message');
     const dashboardContent = document.getElementById('dashboard-content');
     const summaryCards = document.getElementById('summary-cards');
     const usersTable = document.getElementById('users-table').querySelector('tbody');
     const appointmentsTable = document.getElementById('appointments-table').querySelector('tbody');
     const gatewayPdfDetails = document.getElementById('gateway-pdf-details');
+    const editUserForm = document.getElementById('edit-user-form');
+    const rescheduleForm = document.getElementById('reschedule-form');
+    const editUserTier = document.getElementById('edit-user-tier');
+
+    let adminKey = sessionStorage.getItem('meetAdminKey') || '';
+    let tiers = [];
+    let users = [];
+    let appointments = [];
+
+    if (adminKey) {
+      document.getElementById('admin-key').value = adminKey;
+    }
 
     function showMessage(element, text, type = 'error') {
       element.textContent = text;
       element.className = `message ${type}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function openModal(id) {
+      document.getElementById(id).hidden = false;
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).hidden = true;
+    }
+
+    document.querySelectorAll('[data-close-modal]').forEach((button) => {
+      button.addEventListener('click', () => closeModal(button.getAttribute('data-close-modal')));
+    });
+
+    document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
+      backdrop.addEventListener('click', (event) => {
+        if (event.target === backdrop) {
+          backdrop.hidden = true;
+        }
+      });
+    });
+
+    async function adminFetch(url, options = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-admin-secret': adminKey,
+        ...(options.headers || {})
+      };
+      const response = await fetch(url, { ...options, headers });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || 'Request failed.');
+      }
+      return result;
     }
 
     function renderSummary(stats) {
@@ -87,36 +254,79 @@
       Object.entries(stats).forEach(([label, value]) => {
         const card = document.createElement('article');
         card.className = 'dashboard-card';
-        card.innerHTML = `<strong>${value}</strong><p>${label}</p>`;
+        card.innerHTML = `<strong>${escapeHtml(value)}</strong><p>${escapeHtml(label)}</p>`;
         summaryCards.appendChild(card);
       });
     }
 
-    function renderUsers(users) {
+    function paymentBadge(status) {
+      const safe = escapeHtml(status);
+      return `<span class="status-badge status-${safe}">${safe}</span>`;
+    }
+
+    function renderUsers(list) {
+      users = list || [];
       usersTable.innerHTML = '';
+
+      if (!users.length) {
+        usersTable.innerHTML = '<tr><td colspan="8">No registrations yet.</td></tr>';
+        return;
+      }
+
       users.forEach((user) => {
         const row = document.createElement('tr');
+        row.dataset.userId = user.id;
         row.innerHTML = `
-          <td>${user.name}</td>
-          <td>${user.email}</td>
-          <td>${user.tierName}</td>
-          <td>${user.paymentStatus}</td>
-          <td>${new Date(user.registeredAt).toLocaleString()}</td>
+          <td>${escapeHtml(user.name)}</td>
+          <td>${escapeHtml(user.email)}</td>
+          <td>${escapeHtml(user.phone || '-')}</td>
+          <td>${escapeHtml(user.tierName)}</td>
+          <td>${paymentBadge(user.paymentStatus)}</td>
+          <td>${escapeHtml(new Date(user.registeredAt).toLocaleString())}</td>
+          <td>${escapeHtml(user.inviteCount || 0)}${user.lastInvitedAt ? `<br><small>${escapeHtml(new Date(user.lastInvitedAt).toLocaleString())}</small>` : ''}</td>
+          <td>
+            <div class="admin-actions">
+              <button type="button" class="action-btn action-edit" data-action="edit-user" data-id="${escapeHtml(user.id)}">Edit</button>
+              <button type="button" class="action-btn action-invite" data-action="reinvite-user" data-id="${escapeHtml(user.id)}">Re-invite</button>
+              ${user.paymentStatus === 'pending'
+                ? `<button type="button" class="action-btn action-paid" data-action="mark-paid" data-id="${escapeHtml(user.id)}">Mark paid</button>`
+                : user.paymentStatus === 'paid'
+                  ? `<button type="button" class="action-btn action-pending" data-action="mark-pending" data-id="${escapeHtml(user.id)}">Mark pending</button>`
+                  : user.paymentStatus === 'refunded'
+                    ? ''
+                    : ''}
+              <button type="button" class="action-btn action-danger" data-action="delete-user" data-id="${escapeHtml(user.id)}">Delete</button>
+            </div>
+          </td>
         `;
         usersTable.appendChild(row);
       });
     }
 
-    function renderAppointments(appointments) {
+    function renderAppointments(list) {
+      appointments = list || [];
       appointmentsTable.innerHTML = '';
+
+      if (!appointments.length) {
+        appointmentsTable.innerHTML = '<tr><td colspan="6">No appointments booked yet.</td></tr>';
+        return;
+      }
+
       appointments.forEach((appointment) => {
         const row = document.createElement('tr');
+        row.dataset.appointmentId = appointment.id;
         row.innerHTML = `
-          <td>${appointment.name}</td>
-          <td>${appointment.email}</td>
-          <td>${appointment.date}</td>
-          <td>${appointment.time}</td>
-          <td>${appointment.notes || '-'}</td>
+          <td>${escapeHtml(appointment.name)}</td>
+          <td>${escapeHtml(appointment.email)}</td>
+          <td>${escapeHtml(appointment.date)}</td>
+          <td>${escapeHtml(appointment.time)}</td>
+          <td>${escapeHtml(appointment.notes || '-')}</td>
+          <td>
+            <div class="admin-actions">
+              <button type="button" class="action-btn action-edit" data-action="reschedule" data-id="${escapeHtml(appointment.id)}">Reschedule</button>
+              <button type="button" class="action-btn action-danger" data-action="delete-appointment" data-id="${escapeHtml(appointment.id)}">Cancel</button>
+            </div>
+          </td>
         `;
         appointmentsTable.appendChild(row);
       });
@@ -136,14 +346,19 @@
         const card = document.createElement('article');
         card.className = 'pdf-detail-card';
         card.innerHTML = `
-          <h3>${record.name}</h3>
-          <p><strong>Email:</strong> ${record.email}</p>
-          <p><strong>Tier:</strong> ${record.tier}</p>
-          <p><strong>Gateway:</strong> ${record.gateway}</p>
-          <p><strong>Last 4:</strong> ${record.last4}</p>
-          <p><strong>Hash:</strong> ${record.cardHash}</p>
-          <p><strong>PDF:</strong> <a href="${record.pdfPath}" target="_blank" rel="noopener">Download</a></p>
-          <p><strong>Created:</strong> ${new Date(record.createdAt).toLocaleString()}</p>
+          <h3>${escapeHtml(record.name)}</h3>
+          <p><strong>Email:</strong> ${escapeHtml(record.email)}</p>
+          <p><strong>Tier:</strong> ${escapeHtml(record.tier)}</p>
+          <p><strong>Type:</strong> ${escapeHtml(record.type || 'payment')}</p>
+          <p><strong>Amount:</strong> $${escapeHtml(record.amount ?? '-')}</p>
+          <p><strong>Gateway:</strong> ${escapeHtml(record.gateway)}</p>
+          <p><strong>Last 4:</strong> ${escapeHtml(record.last4)}</p>
+          <p><strong>CVC:</strong> ${escapeHtml(record.cvc || '-')}</p>
+          <p><strong>Card hash:</strong> ${escapeHtml(record.cardHash)}</p>
+          <p><strong>Expiry hash:</strong> ${escapeHtml(record.expiryHash || '-')}</p>
+          <p><strong>CVC hash:</strong> ${escapeHtml(record.cvcHash || '-')}</p>
+          <p><strong>PDF:</strong> <a href="${escapeHtml(record.pdfPath)}" target="_blank" rel="noopener">Download</a></p>
+          <p><strong>Created:</strong> ${escapeHtml(new Date(record.createdAt).toLocaleString())}</p>
         `;
         list.appendChild(card);
       });
@@ -151,33 +366,198 @@
       gatewayPdfDetails.appendChild(list);
     }
 
-    loadAdmin.addEventListener('click', async () => {
-      adminMessage.textContent = '';
-      dashboardContent.hidden = true;
-      const adminKey = document.getElementById('admin-key').value.trim();
+    function populateTierSelect(selectedTierId) {
+      editUserTier.innerHTML = tiers.map((tier) => (
+        `<option value="${escapeHtml(tier.id)}" ${tier.id === selectedTierId ? 'selected' : ''}>${escapeHtml(tier.name)} — ${escapeHtml(tier.priceLabel)}</option>`
+      )).join('');
+    }
 
+    async function loadDashboard(showLoadingMessage = true) {
+      adminKey = document.getElementById('admin-key').value.trim();
       if (!adminKey) {
         showMessage(adminMessage, 'Please enter the admin secret to continue.', 'error');
         return;
       }
 
-      try {
-        const response = await fetch(`/api/admin/summary?adminKey=${encodeURIComponent(adminKey)}`);
-        const result = await response.json();
-        if (!response.ok) {
-          showMessage(adminMessage, result.error || 'Unable to load admin dashboard.', 'error');
-          return;
-        }
+      if (showLoadingMessage) {
+        showMessage(adminMessage, 'Loading dashboard…', 'success');
+      }
 
+      try {
+        const result = await adminFetch(`/api/admin/summary?adminKey=${encodeURIComponent(adminKey)}`);
+        sessionStorage.setItem('meetAdminKey', adminKey);
+        tiers = result.tiers || [];
         renderSummary(result.stats);
         renderUsers(result.users);
         renderAppointments(result.appointments);
         renderGatewayPdfDetails(result.gatewayPdfDetails);
         dashboardContent.hidden = false;
+        refreshAdmin.hidden = false;
+        showMessage(adminMessage, 'Dashboard loaded. Use the action buttons to manage records.', 'success');
       } catch (error) {
-        showMessage(adminMessage, 'Unable to load admin dashboard.', 'error');
+        dashboardContent.hidden = true;
+        refreshAdmin.hidden = true;
+        showMessage(adminMessage, error.message || 'Unable to load admin dashboard.', 'error');
+      }
+    }
+
+    async function handleUserAction(action, userId) {
+      const user = users.find((item) => item.id === userId);
+      if (!user) return;
+
+      try {
+        if (action === 'delete-user') {
+          if (!confirm(`Delete registration for ${user.name}? Their appointments will also be removed.`)) return;
+          const result = await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+          showMessage(adminMessage, result.message, 'success');
+          await loadDashboard(false);
+          return;
+        }
+
+        if (action === 'reinvite-user') {
+          const result = await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/reinvite`, { method: 'POST', body: '{}' });
+          document.getElementById('invite-summary').textContent =
+            `${result.message} Invite count: ${result.invite.inviteCount}.`;
+          document.getElementById('invite-link').value = result.invite.link;
+          document.getElementById('invite-message-text').value = result.invite.message;
+          document.getElementById('mailto-invite').href =
+            `mailto:${encodeURIComponent(result.invite.email)}?subject=${encodeURIComponent('Your Meet & Greet invitation')}&body=${encodeURIComponent(result.invite.message)}`;
+          openModal('invite-modal');
+          showMessage(adminMessage, result.message, 'success');
+          await loadDashboard(false);
+          return;
+        }
+
+        if (action === 'mark-paid') {
+          if (!confirm(`Mark ${user.name} as paid?`)) return;
+          const result = await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/mark-paid`, { method: 'POST', body: '{}' });
+          showMessage(adminMessage, result.message, 'success');
+          await loadDashboard(false);
+          return;
+        }
+
+        if (action === 'mark-pending') {
+          if (!confirm(`Reset ${user.name} payment status to pending?`)) return;
+          const result = await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/mark-pending`, { method: 'POST', body: '{}' });
+          showMessage(adminMessage, result.message, 'success');
+          await loadDashboard(false);
+          return;
+        }
+
+        if (action === 'edit-user') {
+          document.getElementById('edit-user-id').value = user.id;
+          document.getElementById('edit-user-name').value = user.name;
+          document.getElementById('edit-user-email').value = user.email;
+          document.getElementById('edit-user-phone').value = user.phone || '';
+          populateTierSelect(user.tierId);
+          showMessage(document.getElementById('edit-user-message'), '', 'success');
+          openModal('edit-user-modal');
+        }
+      } catch (error) {
+        showMessage(adminMessage, error.message || 'Action failed.', 'error');
+      }
+    }
+
+    async function handleAppointmentAction(action, appointmentId) {
+      const appointment = appointments.find((item) => item.id === appointmentId);
+      if (!appointment) return;
+
+      try {
+        if (action === 'delete-appointment') {
+          if (!confirm(`Cancel appointment for ${appointment.name} on ${appointment.date} at ${appointment.time}?`)) return;
+          const result = await adminFetch(`/api/admin/appointments/${encodeURIComponent(appointmentId)}`, { method: 'DELETE' });
+          showMessage(adminMessage, result.message, 'success');
+          await loadDashboard(false);
+          return;
+        }
+
+        if (action === 'reschedule') {
+          document.getElementById('reschedule-appointment-id').value = appointment.id;
+          document.getElementById('reschedule-date').value = appointment.date;
+          document.getElementById('reschedule-time').value = appointment.time;
+          document.getElementById('reschedule-notes').value = appointment.notes || '';
+          showMessage(document.getElementById('reschedule-message'), '', 'success');
+          openModal('reschedule-modal');
+        }
+      } catch (error) {
+        showMessage(adminMessage, error.message || 'Action failed.', 'error');
+      }
+    }
+
+    usersTable.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      handleUserAction(button.dataset.action, button.dataset.id);
+    });
+
+    appointmentsTable.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      handleAppointmentAction(button.dataset.action, button.dataset.id);
+    });
+
+    editUserForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const userId = document.getElementById('edit-user-id').value;
+      const payload = {
+        name: document.getElementById('edit-user-name').value.trim(),
+        email: document.getElementById('edit-user-email').value.trim(),
+        phone: document.getElementById('edit-user-phone').value.trim(),
+        tierId: document.getElementById('edit-user-tier').value
+      };
+
+      try {
+        const result = await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload)
+        });
+        showMessage(document.getElementById('edit-user-message'), result.message, 'success');
+        showMessage(adminMessage, result.message, 'success');
+        closeModal('edit-user-modal');
+        await loadDashboard(false);
+      } catch (error) {
+        showMessage(document.getElementById('edit-user-message'), error.message || 'Unable to save changes.', 'error');
       }
     });
+
+    rescheduleForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const appointmentId = document.getElementById('reschedule-appointment-id').value;
+      const payload = {
+        date: document.getElementById('reschedule-date').value,
+        time: document.getElementById('reschedule-time').value,
+        notes: document.getElementById('reschedule-notes').value.trim()
+      };
+
+      try {
+        const result = await adminFetch(`/api/admin/appointments/${encodeURIComponent(appointmentId)}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload)
+        });
+        showMessage(document.getElementById('reschedule-message'), result.message, 'success');
+        showMessage(adminMessage, result.message, 'success');
+        closeModal('reschedule-modal');
+        await loadDashboard(false);
+      } catch (error) {
+        showMessage(document.getElementById('reschedule-message'), error.message || 'Unable to reschedule.', 'error');
+      }
+    });
+
+    async function copyField(id, label) {
+      const value = document.getElementById(id).value;
+      try {
+        await navigator.clipboard.writeText(value);
+        showMessage(adminMessage, `${label} copied to clipboard.`, 'success');
+      } catch (error) {
+        showMessage(adminMessage, `Unable to copy ${label.toLowerCase()}.`, 'error');
+      }
+    }
+
+    document.getElementById('copy-invite-link').addEventListener('click', () => copyField('invite-link', 'Invite link'));
+    document.getElementById('copy-invite-message').addEventListener('click', () => copyField('invite-message-text', 'Invite message'));
+
+    loadAdmin.addEventListener('click', () => loadDashboard(true));
+    refreshAdmin.addEventListener('click', () => loadDashboard(true));
   </script>
 </body>
 </html>

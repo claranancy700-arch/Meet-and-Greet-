@@ -201,6 +201,68 @@ textarea {
   object-fit: cover;
 }
 
+.refund-benefits {
+  margin-top: 36px;
+  padding: 32px 28px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #0f766e 100%);
+  color: #f8fafc;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.2);
+}
+
+.refund-benefits .eyebrow {
+  color: #93c5fd;
+}
+
+.refund-benefits h2 {
+  margin: 8px 0 18px;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  letter-spacing: 0.04em;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.refund-benefits ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.refund-benefits li {
+  font-size: 1.05rem;
+  line-height: 1.45;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.refund-benefits li strong {
+  font-weight: 800;
+  color: #fde68a;
+  display: inline;
+}
+
+.refund-section {
+  margin-top: 48px;
+}
+
+.refund-panel {
+  border: 2px solid #c7d2fe;
+}
+
+.refund-intro {
+  margin: 0 0 18px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.refund-gateway-header {
+  background: linear-gradient(120deg, #0f766e, #1d4ed8);
+}
+
 main {
   max-width: 1180px;
   margin: 0 auto;
@@ -825,4 +887,156 @@ textarea {
 
 .table-list tr:hover {
   background: #f1f5f9;
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.table-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+}
+
+.table-header-row h2 {
+  margin: 0;
+}
+
+.table-hint {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.action-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: white;
+  line-height: 1.2;
+}
+
+.action-edit {
+  background: #2563eb;
+}
+
+.action-invite {
+  background: #7c3aed;
+}
+
+.action-paid {
+  background: #059669;
+}
+
+.action-pending {
+  background: #d97706;
+}
+
+.action-danger {
+  background: #dc2626;
+}
+
+.action-btn:hover {
+  filter: brightness(1.08);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-paid {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-free {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.status-refunded {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+.admin-modal-panel {
+  max-width: 520px;
+}
+
+.admin-form {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.invite-details .field-group input,
+.invite-details .field-group textarea {
+  width: 100%;
+}
+
+.pdf-detail-list {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.pdf-detail-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.pdf-detail-card h3 {
+  margin: 0 0 10px;
+}
+
+.table-list small {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .admin-actions {
+    min-width: 160px;
+  }
+
+  .admin-action-row .button {
+    width: 100%;
+    text-align: center;
+  }
 }
